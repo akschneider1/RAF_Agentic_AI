@@ -258,22 +258,34 @@ class NERPreprocessor:
         
         # Group by sentence
         sentence_groups = df.groupby(sentence_id_col)
+        total_sentences = len(sentence_groups)
+        processed_count = 0
+        
+        print(f"Processing {total_sentences} sentences...")
         
         for sentence_id, sentence_df in sentence_groups:
             try:
-                # Sort by token order if available
-                if 'token_id' in sentence_df.columns:
+                # Sort by token position if available
+                if 'token_position' in sentence_df.columns:
+                    sentence_df = sentence_df.sort_values('token_position')
+                elif 'token_id' in sentence_df.columns:
                     sentence_df = sentence_df.sort_values('token_id')
                 elif 'Token_ID' in sentence_df.columns:
                     sentence_df = sentence_df.sort_values('Token_ID')
                 
                 processed_example = self.preprocess_sentence(sentence_df, max_length)
                 processed_examples.append(processed_example)
+                processed_count += 1
+                
+                # Progress update
+                if processed_count % 1000 == 0:
+                    print(f"Processed {processed_count}/{total_sentences} sentences...")
                 
             except Exception as e:
                 print(f"Error processing sentence {sentence_id}: {e}")
                 continue
         
+        print(f"Successfully processed {len(processed_examples)} out of {total_sentences} sentences")
         return processed_examples
     
     def create_torch_dataset(self, processed_examples: List[ProcessedExample]) -> Dict[str, torch.Tensor]:
@@ -349,7 +361,7 @@ def create_preprocessing_pipeline():
     
     # Preprocess dataset
     print("Preprocessing dataset...")
-    processed_examples = preprocessor.preprocess_dataset(df.head(1000))  # Process first 1000 for testing
+    processed_examples = preprocessor.preprocess_dataset(df)  # Process all data
     
     # Analyze statistics
     preprocessor.analyze_preprocessing_stats(processed_examples)
