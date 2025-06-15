@@ -188,9 +188,22 @@ class NERPreprocessor:
         Returns:
             ProcessedExample object
         """
-        # Extract words and labels
-        words = sentence_df['token'].tolist()
-        labels = sentence_df['tag'].tolist()
+        # Extract words and labels - handle different column names
+        if 'token' in sentence_df.columns:
+            words = sentence_df['token'].tolist()
+        elif 'Token' in sentence_df.columns:
+            words = sentence_df['Token'].tolist()
+        else:
+            raise ValueError("No token column found")
+            
+        if 'tag' in sentence_df.columns:
+            labels = sentence_df['tag'].tolist()
+        elif 'tags' in sentence_df.columns:
+            labels = sentence_df['tags'].tolist()
+        elif 'Tag' in sentence_df.columns:
+            labels = sentence_df['Tag'].tolist()
+        else:
+            raise ValueError("No tag column found")
         
         # Normalize text
         normalized_words = [self.normalizer.normalize_text(word) for word in words]
@@ -233,6 +246,16 @@ class NERPreprocessor:
         """
         processed_examples = []
         
+        # Handle different sentence ID column names
+        if sentence_id_col not in df.columns:
+            if 'global_sentence_id' in df.columns:
+                sentence_id_col = 'global_sentence_id'
+            elif 'Sentence_ID' in df.columns:
+                sentence_id_col = 'Sentence_ID'
+            else:
+                print(f"Warning: No sentence ID column found. Available columns: {df.columns.tolist()}")
+                return processed_examples
+        
         # Group by sentence
         sentence_groups = df.groupby(sentence_id_col)
         
@@ -241,6 +264,8 @@ class NERPreprocessor:
                 # Sort by token order if available
                 if 'token_id' in sentence_df.columns:
                     sentence_df = sentence_df.sort_values('token_id')
+                elif 'Token_ID' in sentence_df.columns:
+                    sentence_df = sentence_df.sort_values('Token_ID')
                 
                 processed_example = self.preprocess_sentence(sentence_df, max_length)
                 processed_examples.append(processed_example)
@@ -312,6 +337,15 @@ def create_preprocessing_pipeline():
             df['sentence_id'] = df['global_sentence_id']
     
     print(f"Loaded {len(df)} tokens")
+    print(f"Columns: {df.columns.tolist()}")
+    print(f"Sample data:")
+    print(df.head())
+    
+    # Filter to only include rows with valid labels
+    print("Filtering valid data...")
+    initial_len = len(df)
+    df = df.dropna(subset=['tags' if 'tags' in df.columns else 'token'])
+    print(f"Filtered from {initial_len} to {len(df)} rows")
     
     # Preprocess dataset
     print("Preprocessing dataset...")
