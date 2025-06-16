@@ -1,4 +1,3 @@
-
 import re
 import string
 from typing import List, Dict, Tuple, Set
@@ -16,10 +15,10 @@ class PIIMatch:
 
 class PIIDetector:
     """Rule-based PII detection engine with high-precision regex patterns"""
-    
+
     def __init__(self):
         self.patterns = self._initialize_patterns()
-    
+
     def _initialize_patterns(self) -> Dict[str, List[Tuple[str, re.Pattern, float]]]:
         """Initialize all PII detection patterns"""
         return {
@@ -31,129 +30,129 @@ class PIIDetector:
             'PASSPORT': self._get_passport_patterns(),
             'LICENSE_PLATE': self._get_license_plate_patterns()
         }
-    
+
     def _get_phone_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define phone number patterns with high precision"""
         patterns = []
-        
+
         # Saudi Arabian mobile numbers
         patterns.append((
             "Saudi Mobile (+966)",
             re.compile(r'\+966\s*[5][0-9]\s*\d{3}\s*\d{4}', re.IGNORECASE),
             0.95
         ))
-        
+
         patterns.append((
             "Saudi Mobile (00966)",
             re.compile(r'00966\s*[5][0-9]\s*\d{3}\s*\d{4}', re.IGNORECASE),
             0.95
         ))
-        
+
         patterns.append((
             "Saudi Mobile (05)",
             re.compile(r'05\s*[0-9]\s*\d{3}\s*\d{4}(?!\d)', re.IGNORECASE),
             0.90
         ))
-        
+
         # Jordanian mobile numbers (as mentioned in prompt)
         patterns.append((
             "Jordan Mobile (+962)",
             re.compile(r'\+962\s*[7][7-9]\s*\d{3}\s*\d{4}', re.IGNORECASE),
             0.95
         ))
-        
+
         patterns.append((
             "Jordan Mobile (00962)",
             re.compile(r'00962\s*[7][7-9]\s*\d{3}\s*\d{4}', re.IGNORECASE),
             0.95
         ))
-        
+
         patterns.append((
             "Jordan Mobile (07)",
             re.compile(r'07\s*[7-9]\s*\d{3}\s*\d{4}(?!\d)', re.IGNORECASE),
             0.90
         ))
-        
+
         # UAE mobile numbers
         patterns.append((
             "UAE Mobile (+971)",
             re.compile(r'\+971\s*[5][0-6]\s*\d{3}\s*\d{4}', re.IGNORECASE),
             0.95
         ))
-        
+
         # Egyptian mobile numbers
         patterns.append((
             "Egypt Mobile (+20)",
             re.compile(r'\+20\s*[1][0-5]\s*\d{4}\s*\d{4}', re.IGNORECASE),
             0.95
         ))
-        
+
         # Generic international format
         patterns.append((
             "International Phone",
             re.compile(r'\+\d{1,3}\s*\d{1,4}\s*\d{3,4}\s*\d{4}', re.IGNORECASE),
             0.80
         ))
-        
+
         return patterns
-    
+
     def _get_email_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define email patterns with high precision"""
         patterns = []
-        
+
         # Standard email pattern with high precision
         patterns.append((
             "Standard Email",
             re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b', re.IGNORECASE),
             0.95
         ))
-        
+
         # Arabic domain emails
         patterns.append((
             "Arabic Domain Email",
             re.compile(r'\b[A-Za-z0-9._%+-]+@[\u0600-\u06FF\w.-]+\.[A-Za-z]{2,}\b', re.IGNORECASE),
             0.90
         ))
-        
+
         return patterns
-    
+
     def _get_national_id_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define national ID patterns for various Arab countries"""
         patterns = []
-        
+
         # Saudi National ID (10 digits starting with 1 or 2)
         patterns.append((
             "Saudi National ID",
             re.compile(r'\b[12]\d{9}\b'),
             0.95
         ))
-        
+
         # UAE Emirates ID (15 digits, format: 784-YYYY-XXXXXXX-X)
         patterns.append((
             "UAE Emirates ID",
             re.compile(r'\b784[-\s]*\d{4}[-\s]*\d{7}[-\s]*\d\b'),
             0.95
         ))
-        
+
         # Egyptian National ID (14 digits)
         patterns.append((
             "Egyptian National ID",
             re.compile(r'\b[23]\d{13}\b'),
             0.90
         ))
-        
+
         # Jordanian National ID (10 digits)
         patterns.append((
             "Jordan National ID",
             re.compile(r'\b\d{10}\b'),
             0.80  # Lower confidence due to generic pattern
         ))
-        
+
         return patterns
-    
+
     def _get_iban_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         patterns = []
-        
+
         patterns.extend([
             ("Saudi IBAN", re.compile(r'\bSA\d{2}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\b', re.IGNORECASE), 0.95),
             ("UAE IBAN", re.compile(r'\bAE\d{2}\s*\d{3}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{3}\b', re.IGNORECASE), 0.95),
@@ -161,90 +160,90 @@ class PIIDetector:
             ("Jordan IBAN", re.compile(r'\bJO\d{2}\s*[A-Z]{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\b', re.IGNORECASE), 0.95),
             ("Generic IBAN", re.compile(r'\b[A-Z]{2}\d{2}\s*[A-Z0-9]{4}\s*\d{4}\s*\d{4}\s*[A-Z0-9]*\b', re.IGNORECASE), 0.85)
         ])
-        
+
         return patterns
-    
+
     def _get_credit_card_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define credit card patterns"""
         patterns = []
-        
+
         # Visa (starts with 4, 16 digits)
         patterns.append((
             "Visa Card",
             re.compile(r'\b4\d{3}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b'),
             0.90
         ))
-        
+
         # MasterCard (starts with 5, 16 digits)
         patterns.append((
             "MasterCard",
             re.compile(r'\b5[1-5]\d{2}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b'),
             0.90
         ))
-        
+
         # American Express (starts with 34 or 37, 15 digits)
         patterns.append((
             "American Express",
             re.compile(r'\b3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5}\b'),
             0.90
         ))
-        
+
         return patterns
-    
+
     def _get_passport_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define passport number patterns"""
         patterns = []
-        
+
         # Saudi passport (letter followed by 7-8 digits)
         patterns.append((
             "Saudi Passport",
             re.compile(r'\b[A-Z]\d{7,8}\b', re.IGNORECASE),
             0.80
         ))
-        
+
         # Generic passport (various formats)
         patterns.append((
             "Generic Passport",
             re.compile(r'\b[A-Z]{1,2}\d{6,8}\b', re.IGNORECASE),
             0.70
         ))
-        
+
         return patterns
-    
+
     def _get_license_plate_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define license plate patterns for Arab countries"""
         patterns = []
-        
+
         # Saudi license plate (3 Arabic letters + 4 digits)
         patterns.append((
             "Saudi License Plate",
             re.compile(r'[\u0600-\u06FF]{3}\s*\d{4}'),
             0.90
         ))
-        
+
         # UAE license plate (1-2 letters + 1-5 digits)
         patterns.append((
             "UAE License Plate",
             re.compile(r'\b[A-Z]{1,2}\s*\d{1,5}\b', re.IGNORECASE),
             0.80
         ))
-        
+
         return patterns
-    
+
     def detect_saudi_mobile_numbers(self, text: str) -> List[PIIMatch]:
         """
         Specialized function to detect Saudi Arabian mobile numbers
         Numbers can start with +966, 00966, or 05 and may contain spaces
         """
         matches = []
-        
+
         # Saudi mobile patterns
         saudi_patterns = [
             (r'\+966\s*[5][0-9]\s*\d{3}\s*\d{4}', "Saudi Mobile (+966)", 0.95),
             (r'00966\s*[5][0-9]\s*\d{3}\s*\d{4}', "Saudi Mobile (00966)", 0.95),
             (r'05\s*[0-9]\s*\d{3}\s*\d{4}(?!\d)', "Saudi Mobile (05)", 0.90),
         ]
-        
+
         for pattern, name, confidence in saudi_patterns:
             regex = re.compile(pattern, re.IGNORECASE)
             for match in regex.finditer(text):
@@ -256,13 +255,13 @@ class PIIDetector:
                     confidence=confidence,
                     pattern_name=name
                 ))
-        
+
         return matches
-    
+
     def detect_all_pii(self, text: str, min_confidence: float = 0.7) -> List[PIIMatch]:
         """Detect all PII types in the given text"""
         all_matches = []
-        
+
         for pii_type, patterns in self.patterns.items():
             for pattern_name, regex, confidence in patterns:
                 if confidence >= min_confidence:
@@ -275,17 +274,17 @@ class PIIDetector:
                             confidence=confidence,
                             pattern_name=pattern_name
                         ))
-        
+
         return self._remove_overlapping_matches(all_matches)
-    
+
     def _remove_overlapping_matches(self, matches: List[PIIMatch]) -> List[PIIMatch]:
         """Remove overlapping matches, keeping the one with higher confidence"""
         if not matches:
             return matches
-        
+
         # Sort by start position
         matches.sort(key=lambda x: x.start_pos)
-        
+
         filtered_matches = []
         for match in matches:
             # Check if this match overlaps with any already added match
@@ -300,17 +299,17 @@ class PIIDetector:
                         filtered_matches.append(match)
                     overlaps = True
                     break
-            
+
             if not overlaps:
                 filtered_matches.append(match)
-        
+
         return filtered_matches
-    
+
     def validate_phone_number(self, phone: str) -> bool:
         """Additional validation for phone numbers"""
         # Remove all non-digit characters except +
         clean_phone = re.sub(r'[^\d+]', '', phone)
-        
+
         # Basic length checks
         if clean_phone.startswith('+966') and len(clean_phone) == 13:
             return True
@@ -318,18 +317,18 @@ class PIIDetector:
             return True
         elif clean_phone.startswith('05') and len(clean_phone) == 10:
             return True
-        
+
         return False
-    
+
     def validate_iban(self, iban: str) -> bool:
         """Basic IBAN validation using checksum"""
         # Remove spaces and convert to uppercase
         iban = re.sub(r'\s', '', iban).upper()
-        
+
         # Basic format check
         if not re.match(r'^[A-Z]{2}\d{2}[A-Z0-9]+$', iban):
             return False
-        
+
         # Move first 4 characters to end and convert letters to numbers
         rearranged = iban[4:] + iban[:4]
         numeric = ''
@@ -338,14 +337,14 @@ class PIIDetector:
                 numeric += str(ord(char) - ord('A') + 10)
             else:
                 numeric += char
-        
+
         # Check if mod 97 equals 1
         return int(numeric) % 97 == 1
 
 def test_pii_detector():
     """Test function to demonstrate the PII detector capabilities"""
     detector = PIIDetector()
-    
+
     # Test text with various PII types
     test_text = """
     اتصل بي على رقم 0501234567 أو +966501234567
@@ -354,18 +353,18 @@ def test_pii_detector():
     الآيبان: SA12 3456 7890 1234 5678 9012 3456
     رقم البطاقة الائتمانية: 4111-1111-1111-1111
     رقم جواز السفر: A1234567
-    
+
     You can also reach me at john.doe@company.org
     Phone: +962 77 123 4567
     IBAN: JO94 CBJO 0010 0000 0000 0131 0003
     """
-    
+
     print("Testing Saudi Mobile Number Detection:")
     print("=" * 50)
     saudi_mobiles = detector.detect_saudi_mobile_numbers(test_text)
     for match in saudi_mobiles:
         print(f"Found: {match.text} ({match.pattern_name}) - Confidence: {match.confidence}")
-    
+
     print("\nTesting All PII Detection:")
     print("=" * 50)
     all_pii = detector.detect_all_pii(test_text, min_confidence=0.8)

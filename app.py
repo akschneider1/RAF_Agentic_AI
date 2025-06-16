@@ -389,6 +389,50 @@ async def mask_text(input_data: TextInput):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error masking text: {str(e)}")
 
+@app.get("/test-enhanced-detection")
+async def test_enhanced_detection_endpoint():
+    """Comprehensive test endpoint for all enhanced PII detection features"""
+    test_cases = [
+        # Credit cards
+        "بطاقتي الائتمانية 4111-1111-1111-1111 visa card",
+        "Credit card number: 5555555555554444 MasterCard",
+        "AmEx: 378282246310005",
+        "Invalid card: 1234567890123456",
+        
+        # Mixed Arabic-English context
+        "اتصل بي على رقم +966501234567 أو email me at ahmed@test.com",
+        "هويتي الوطنية رقم 1234567890 وبطاقة visa 4111111111111111",
+        
+        # Regional dialects and variations
+        "أرقام مختلفة: ٠٥٠١٢٣٤٥٦٧ و ۰۵۰۱۲۳۴۵۶۷",
+        "Different numbers: 05-012-34567 and +966 50 123 4567",
+        
+        # Context with negation
+        "This is not a real credit card: 4111111111111111",
+        "هذا مثال وهمي: +966501234567",
+        
+        # High-confidence context
+        "لطفاً اتصل بي على هاتفي 0501234567",
+        "Please contact me at my phone number +966501234567",
+    ]
+    
+    results = []
+    for test_text in test_cases:
+        matches = detector.detect_all_pii(test_text, min_confidence=0.5)
+        results.append({
+            "test_text": test_text,
+            "detected_count": len(matches),
+            "matches": [{
+                "text": m.text,
+                "type": m.pii_type,
+                "confidence": round(m.confidence, 3),
+                "pattern": m.pattern_name,
+                "position": f"{m.start_pos}-{m.end_pos}"
+            } for m in matches]
+        })
+    
+    return {"enhanced_test_results": results}
+
 @app.get("/test-saudi-mobile")
 async def test_saudi_mobile_endpoint():
     """Test endpoint specifically for Saudi mobile numbers"""

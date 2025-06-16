@@ -33,6 +33,97 @@ class PIIEvaluationSuite:
             "detailed": detailed_report
         }
     
+    def evaluate_pii_specific_metrics(self, y_true: List[List[str]], y_pred: List[List[str]]) -> Dict:
+        """PII-specific evaluation with weighted scoring"""
+        
+        # PII type importance weights (higher for more sensitive PII)
+        pii_weights = {
+            'ID_NUMBER': 1.0,     # Highest weight - national IDs
+            'CREDIT_CARD': 1.0,   # Highest weight - financial
+            'PHONE': 0.8,         # High weight - contact info
+            'EMAIL': 0.8,         # High weight - contact info
+            'PERSON': 0.6,        # Medium weight - names
+            'ADDRESS': 0.7,       # High weight - location
+            'ORGANIZATION': 0.5,  # Lower weight - org names
+            'LOCATION': 0.4       # Lower weight - general locations
+        }
+        
+        # Calculate weighted metrics
+        weighted_tp = weighted_fp = weighted_fn = 0.0
+        entity_scores = {}
+        
+        for true_seq, pred_seq in zip(y_true, y_pred):
+            true_entities = self._extract_entities_with_types(true_seq)
+            pred_entities = self._extract_entities_with_types(pred_seq)
+            
+            for entity in true_entities:
+                entity_type = entity[2].replace('B-', '').replace('I-', '')
+                weight = pii_weights.get(entity_type, 0.5)
+                
+                if entity in pred_entities:
+                    weighted_tp += weight
+                else:
+                    weighted_fn += weight
+                    
+                if entity_type not in entity_scores:
+                    entity_scores[entity_type] = {'tp': 0, 'fp': 0, 'fn': 0, 'weight': weight}
+                
+                if entity in pred_entities:
+                    entity_scores[entity_type]['tp'] += 1
+                else:
+                    entity_scores[entity_type]['fn'] += 1
+            
+            for entity in pred_entities:
+                entity_type = entity[2].replace('B-', '').replace('I-', '')
+                weight = pii_weights.get(entity_type, 0.5)
+                
+                if entity not in true_entities:
+                    weighted_fp += weight
+                    
+                    if entity_type not in entity_scores:
+                        entity_scores[entity_type] = {'tp': 0, 'fp': 0, 'fn': 0, 'weight': weight}
+                    entity_scores[entity_type]['fp'] += 1
+        
+        # Calculate weighted precision, recall, F1
+        weighted_precision = weighted_tp / (weighted_tp + weighted_fp) if (weighted_tp + weighted_fp) > 0 else 0
+        weighted_recall = weighted_tp / (weighted_tp + weighted_fn) if (weighted_tp + weighted_fn) > 0 else 0
+        weighted_f1 = 2 * weighted_precision * weighted_recall / (weighted_precision + weighted_recall) if (weighted_precision + weighted_recall) > 0 else 0
+        
+        return {
+            "weighted_metrics": {
+                "precision": weighted_precision,
+                "recall": weighted_recall,
+                "f1": weighted_f1
+            },
+            "per_type_scores": entity_scores,
+            "weights_used": pii_weights
+        }
+    
+    def _extract_entities_with_types(self, labels: List[str]) -> List[Tuple[int, int, str]]:
+        """Extract entities with their types for weighted evaluation"""
+        entities = []
+        current_entity = None
+        start_pos = None
+        
+        for i, label in enumerate(labels):
+            if label.startswith('B-'):
+                if current_entity:
+                    entities.append((start_pos, i-1, current_entity))
+                current_entity = label
+                start_pos = i
+            elif label.startswith('I-') and current_entity and label[2:] == current_entity[2:]:
+                continue
+            else:
+                if current_entity:
+                    entities.append((start_pos, i-1, current_entity))
+                    current_entity = None
+                    start_pos = None
+        
+        if current_entity:
+            entities.append((start_pos, len(labels)-1, current_entity))
+        
+        return entities
+    
     def evaluate_entity_level(self, y_true: List[List[str]], y_pred: List[List[str]]) -> Dict:
         """Entity-level evaluation (exact match)"""
         

@@ -8,16 +8,31 @@ class AdvancedArabicProcessor:
     """Enhanced Arabic text processing for better NER performance"""
     
     def __init__(self):
-        # Extended character mappings
+        # Extended character mappings with regional variations
         self.char_mappings = {
             # Alef variations
             'أ': 'ا', 'إ': 'ا', 'آ': 'ا', 'ٱ': 'ا',
             # Taa variations
             'ة': 'ه', 'ت': 'ت',
-            # Yaa variations
-            'ي': 'ى', 'ئ': 'ى', 'ؤ': 'و',
+            # Yaa variations (includes Persian/Urdu)
+            'ي': 'ى', 'ئ': 'ى', 'ؤ': 'و', 'ے': 'ى',
             # Haa variations
             'ه': 'ه', 'ح': 'ح',
+            # Kaf variations (regional)
+            'ك': 'ك', 'ک': 'ك',
+            # Waw variations
+            'و': 'و', 'ؤ': 'و',
+        }
+        
+        # Regional dialect patterns
+        self.dialect_normalizations = {
+            # Gulf dialects
+            'چ': 'ج',  # Persian che -> Arabic jeem
+            'پ': 'ب',  # Persian pe -> Arabic ba
+            'گ': 'ج',  # Persian gaf -> Arabic jeem
+            # Maghrebi dialects
+            'ڤ': 'ف',  # Maghrebi veh -> Arabic feh
+            'ڨ': 'ق',  # Maghrebi qaf variant
         }
         
         # Arabic diacritics (comprehensive)
@@ -50,20 +65,35 @@ class AdvancedArabicProcessor:
         ]
     
     def normalize_text(self, text: str) -> str:
-        """Advanced Arabic text normalization"""
+        """Advanced Arabic text normalization with dialect support"""
         if not text:
             return text
         
         # Remove diacritics
         text = self.diacritics.sub('', text)
         
-        # Normalize characters
+        # Normalize regional dialect characters
+        for old_char, new_char in self.dialect_normalizations.items():
+            text = text.replace(old_char, new_char)
+        
+        # Normalize standard characters
         for old_char, new_char in self.char_mappings.items():
             text = text.replace(old_char, new_char)
         
         # Normalize punctuation
         for old_punct, new_punct in self.punctuation_map.items():
             text = text.replace(old_punct, new_punct)
+        
+        # Handle numbers (Arabic-Indic to Western)
+        arabic_indic = '٠١٢٣٤٥٦٧٨٩'
+        western = '0123456789'
+        for ar, en in zip(arabic_indic, western):
+            text = text.replace(ar, en)
+        
+        # Persian/Farsi numerals
+        persian_nums = '۰۱۲۳۴۵۶۷۸۹'
+        for pe, en in zip(persian_nums, western):
+            text = text.replace(pe, en)
         
         # Normalize whitespace and repeated characters
         text = re.sub(r'\s+', ' ', text)
