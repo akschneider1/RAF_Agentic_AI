@@ -16,7 +16,7 @@ run = ["python3", "main.py"]
 deploymentTarget = "cloudrun"
 
 [workflows]
-runButton = "FastAPI Server"
+runButton = "Start PII Detection Server"
 
 [[workflows.workflow]]
 name = "FastAPI Server"
