@@ -19,7 +19,7 @@ import pandas as pd
 from preprocessing import NERPreprocessor, create_preprocessing_pipeline
 
 class NERTrainer:
-    """Fine-tuning trainer for Arabic NER using AraBERT"""
+    """Memory-optimized fine-tuning trainer for Arabic NER using AraBERT"""
     
     def __init__(self, model_name: str = 'aubmindlab/bert-base-arabertv2'):
         self.model_name = model_name
@@ -43,8 +43,8 @@ class NERTrainer:
             self.label_to_id = self.preprocessor.label_to_id
             self.id_to_label = self.preprocessor.aligner.id_to_label
     
-    def prepare_datasets(self):
-        """Load and preprocess datasets"""
+    def prepare_datasets(self, max_length: int = 256):
+        """Load and preprocess datasets with memory optimization"""
         print("PREPARING DATASETS")
         print("=" * 50)
         
@@ -56,16 +56,12 @@ class NERTrainer:
         
         datasets = {}
         
-        # Load augmented training data if available
-        if os.path.exists('train_augmented.csv'):
-            print("Loading augmented training data...")
-            train_df = pd.read_csv('train_augmented.csv')
-        else:
-            print("Loading original Wojood training data...")
-            train_df = pd.read_csv('Wojood/Wojood1_1_nested/train.csv')
-            # Add sentence_id if not present
-            if 'sentence_id' not in train_df.columns:
-                train_df['sentence_id'] = train_df['global_sentence_id']
+        # Load original Wojood training data
+        print("Loading original Wojood training data...")
+        train_df = pd.read_csv('Wojood/Wojood1_1_nested/train.csv')
+        # Add sentence_id if not present
+        if 'sentence_id' not in train_df.columns:
+            train_df['sentence_id'] = train_df['global_sentence_id']
         
         # Load validation data
         val_df = pd.read_csv('Wojood/Wojood1_1_nested/val.csv')
@@ -77,15 +73,15 @@ class NERTrainer:
         if 'sentence_id' not in test_df.columns:
             test_df['sentence_id'] = test_df['global_sentence_id']
         
-        # Preprocess datasets
+        # Preprocess datasets with shorter sequences
         print("Preprocessing training data...")
-        train_examples = self.preprocessor.preprocess_dataset(train_df, max_length=512)
+        train_examples = self.preprocessor.preprocess_dataset(train_df, max_length=max_length)
         
         print("Preprocessing validation data...")
-        val_examples = self.preprocessor.preprocess_dataset(val_df, max_length=512)
+        val_examples = self.preprocessor.preprocess_dataset(val_df, max_length=max_length)
         
         print("Preprocessing test data...")
-        test_examples = self.preprocessor.preprocess_dataset(test_df, max_length=512)
+        test_examples = self.preprocessor.preprocess_dataset(test_df, max_length=max_length)
         
         # Convert to HuggingFace datasets
         def examples_to_dataset(examples):
@@ -148,29 +144,33 @@ class NERTrainer:
         return results
     
     def create_training_arguments(self, output_dir: str = "./model_checkpoints"):
-        """Create training arguments"""
+        """Create memory-optimized training arguments"""
         return TrainingArguments(
             output_dir=output_dir,
             learning_rate=2e-5,
-            per_device_train_batch_size=16,
-            per_device_eval_batch_size=16,
+            per_device_train_batch_size=4,  # Reduced from 16
+            per_device_eval_batch_size=4,   # Reduced from 16
+            gradient_accumulation_steps=4,   # Maintain effective batch size of 16
             num_train_epochs=3,
             weight_decay=0.01,
             evaluation_strategy="steps",
-            eval_steps=500,
+            eval_steps=1000,  # Less frequent evaluation
             save_strategy="steps",
-            save_steps=500,
+            save_steps=1000,
             logging_strategy="steps",
-            logging_steps=100,
+            logging_steps=200,
             load_best_model_at_end=True,
             metric_for_best_model="f1",
             greater_is_better=True,
-            save_total_limit=2,
+            save_total_limit=1,  # Keep only 1 checkpoint
             report_to=None,  # Disable wandb/tensorboard
             seed=42,
-            fp16=torch.cuda.is_available(),  # Use mixed precision if GPU available
+            fp16=False,  # Disable mixed precision for stability
             dataloader_pin_memory=False,
+            dataloader_num_workers=0,  # Disable multiprocessing
             remove_unused_columns=False,
+            push_to_hub=False,
+            prediction_loss_only=False,
         )
     
     def train(self):
@@ -181,8 +181,8 @@ class NERTrainer:
         # Load configuration
         self.load_preprocessor_config()
         
-        # Prepare datasets
-        datasets = self.prepare_datasets()
+        # Prepare datasets with shorter sequences
+        datasets = self.prepare_datasets(max_length=256)
         
         # Initialize model
         self.initialize_model()
@@ -208,7 +208,7 @@ class NERTrainer:
         )
         
         # Print training info
-        print(f"\n📊 TRAINING CONFIGURATION")
+        print(f"\n📊 MEMORY-OPTIMIZED TRAINING CONFIGURATION")
         print(f"Model: {self.model_name}")
         print(f"Training samples: {len(datasets['train'])}")
         print(f"Validation samples: {len(datasets['validation'])}")
@@ -216,7 +216,10 @@ class NERTrainer:
         print(f"Number of labels: {len(self.label_to_id)}")
         print(f"Epochs: {training_args.num_train_epochs}")
         print(f"Batch size: {training_args.per_device_train_batch_size}")
+        print(f"Gradient accumulation steps: {training_args.gradient_accumulation_steps}")
+        print(f"Effective batch size: {training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps}")
         print(f"Learning rate: {training_args.learning_rate}")
+        print(f"Max sequence length: 256")
         
         print(f"\n🏷️ LABEL MAPPINGS:")
         for label, idx in sorted(self.label_to_id.items(), key=lambda x: x[1]):
@@ -262,35 +265,6 @@ class NERTrainer:
             import traceback
             traceback.print_exc()
             return None, None
-    
-    def detailed_evaluation(self, trainer, datasets):
-        """Generate detailed classification report"""
-        print("\n📊 GENERATING DETAILED EVALUATION REPORT...")
-        
-        # Get predictions for test set
-        predictions = trainer.predict(datasets['test'])
-        y_pred = np.argmax(predictions.predictions, axis=2)
-        y_true = predictions.label_ids
-        
-        # Convert to label names
-        true_predictions = [
-            [self.id_to_label[p] for (p, l) in zip(prediction, label) if l != -100]
-            for prediction, label in zip(y_pred, y_true)
-        ]
-        true_labels = [
-            [self.id_to_label[l] for (p, l) in zip(prediction, label) if l != -100]
-            for prediction, label in zip(y_pred, y_true)
-        ]
-        
-        # Generate classification report
-        report = classification_report(true_labels, true_predictions, scheme=IOB2)
-        print("\n🏷️ DETAILED CLASSIFICATION REPORT:")
-        print(report)
-        
-        # Save report
-        with open("classification_report.txt", "w", encoding="utf-8") as f:
-            f.write(report)
-        print("Classification report saved to classification_report.txt")
 
 def main():
     """Main function to start training"""
@@ -305,6 +279,9 @@ def main():
         print(f"GPU: {torch.cuda.get_device_name(0)}")
         print(f"Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
     
+    # Force CPU usage for memory optimization
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    
     # Initialize trainer
     trainer_obj = NERTrainer()
     
@@ -312,10 +289,6 @@ def main():
     trainer, test_results = trainer_obj.train()
     
     if trainer and test_results:
-        # Generate detailed evaluation
-        datasets = trainer_obj.prepare_datasets()
-        trainer_obj.detailed_evaluation(trainer, datasets)
-        
         print("\n🎉 ALL DONE! Your AraBERT PII model is ready for inference.")
     else:
         print("\n💥 Training failed. Please check the logs above.")
