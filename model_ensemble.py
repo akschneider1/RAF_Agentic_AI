@@ -142,7 +142,11 @@ class AdvancedEnsembleDetector:
         }
     
     def detect_ensemble_pii(self, text: str, min_confidence: float = 0.6) -> List[EnsemblePrediction]:
-        """Detect PII using ensemble of all available models"""
+        """Detect PII using ensemble of all available models with intelligent routing"""
+        
+        # Quick text analysis for model routing
+        text_features = self._analyze_text_features(text)
+        selected_models = self._select_optimal_models(text_features)
         
         all_predictions = []
         
@@ -263,6 +267,46 @@ class AdvancedEnsembleDetector:
         
         return merged
     
+    def _analyze_text_features(self, text: str) -> Dict[str, Any]:
+        """Analyze text to determine optimal model selection"""
+        features = {
+            'has_arabic': bool(re.search(r'[\u0600-\u06FF]', text)),
+            'has_english': bool(re.search(r'[a-zA-Z]', text)),
+            'has_digits': bool(re.search(r'\d', text)),
+            'length': len(text),
+            'has_structured_patterns': bool(re.search(r'[\+\-\(\)@\.]', text)),
+            'complexity_score': len(text.split()) / max(len(text.split()), 1)
+        }
+        return features
+    
+    def _select_optimal_models(self, features: Dict[str, Any]) -> List[str]:
+        """Select optimal models based on text features"""
+        models = ['rules']  # Always include rules
+        
+        # Add ML models based on text characteristics
+        if features['has_arabic'] and features['length'] > 10:
+            models.append('mutazyoune')
+        
+        if features['has_structured_patterns']:
+            # Prioritize rules for structured data
+            models = ['rules'] + [m for m in models if m != 'rules']
+        
+        return models
+    
+    def batch_detect_pii(self, texts: List[str], min_confidence: float = 0.6) -> List[List[EnsemblePrediction]]:
+        """Batch processing for multiple texts"""
+        from performance_optimizer import memory_efficient_batch_processing
+        
+        results = []
+        for batch in memory_efficient_batch_processing(texts, batch_size=16):
+            batch_results = []
+            for text in batch:
+                predictions = self.detect_ensemble_pii(text, min_confidence)
+                batch_results.append(predictions)
+            results.extend(batch_results)
+        
+        return results
+
     def analyze_model_agreement(self, text: str) -> Dict[str, Any]:
         """Analyze agreement between different models"""
         

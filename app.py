@@ -3,7 +3,9 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import json
+import asyncio
 from rules import PIIDetector, PIIMatch
+from performance_optimizer import performance_monitor
 
 app = FastAPI(title="PII Detection Engine", description="Arabic and English PII detection system")
 
@@ -436,6 +438,55 @@ async def detect_pii_ensemble(input_data: TextInput):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in ensemble detection: {str(e)}")
+
+@app.post("/detect-batch")
+async def detect_pii_batch(texts: List[str], min_confidence: float = 0.7):
+    """Batch PII detection for multiple texts"""
+    try:
+        if len(texts) > 100:  # Limit batch size
+            raise HTTPException(status_code=400, detail="Batch size too large (max 100)")
+        
+        results = []
+        for text in texts:
+            detected_pii = detector.detect_all_pii(text, min_confidence)
+            masked_text = mask_pii_in_text(text, detected_pii)
+            
+            pii_list = []
+            for match in detected_pii:
+                pii_list.append({
+                    "text": match.text,
+                    "pii_type": match.pii_type,
+                    "start_pos": match.start_pos,
+                    "end_pos": match.end_pos,
+                    "confidence": match.confidence,
+                    "pattern_name": match.pattern_name,
+                    "detection_method": "rules"
+                })
+            
+            summary = {}
+            for match in detected_pii:
+                summary[match.pii_type] = summary.get(match.pii_type, 0) + 1
+            
+            results.append({
+                "original_text": text,
+                "masked_text": masked_text,
+                "detected_pii": pii_list,
+                "summary": summary
+            })
+        
+        return {"results": results, "processed_count": len(texts)}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in batch detection: {str(e)}")
+
+@app.get("/performance-stats")
+async def get_performance_stats():
+    """Get performance statistics"""
+    try:
+        stats = performance_monitor.get_stats()
+        return {"performance_metrics": stats}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting stats: {str(e)}")
 
 @app.post("/mask")
 async def mask_text(input_data: TextInput):

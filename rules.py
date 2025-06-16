@@ -2,6 +2,8 @@ import re
 import string
 from typing import List, Dict, Tuple, Set
 from dataclasses import dataclass
+import functools
+from performance_optimizer import cached_prediction, performance_monitor
 
 @dataclass
 class PIIMatch:
@@ -258,6 +260,8 @@ class PIIDetector:
 
         return matches
 
+    @cached_prediction("rule_based")
+    @performance_monitor.time_function("detect_all_pii")
     def detect_all_pii(self, text: str, min_confidence: float = 0.7) -> List[PIIMatch]:
         """Detect all PII types in the given text"""
         all_matches = []
