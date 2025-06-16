@@ -421,68 +421,7 @@ async def detect_pii(input_data: TextInput):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error detecting PII: {str(e)}")
 
-@app.post("/detect-ensemble", response_model=PIIResponse)
-async def detect_pii_ensemble(input_data: TextInput):
-    """Detect PII using ensemble approach (rules + MutazYoune model)"""
-    if not ensemble_available:
-        raise HTTPException(
-            status_code=503, 
-            detail="Ensemble detection not available. MutazYoune model could not be loaded."
-        )
-
-    try:
-        # Get ensemble predictions
-        ensemble_predictions = ensemble_detector.detect_ensemble_pii(
-            input_data.text, 
-            input_data.min_confidence
-        )
-
-        # Convert to standard format for masking
-        detected_pii = []
-        for pred in ensemble_predictions:
-            # Create a PIIMatch-like object for compatibility with masking function
-            class EnsembleMatch:
-                def __init__(self, pred):
-                    self.text = pred.text
-                    self.pii_type = pred.pii_type
-                    self.start_pos = pred.start_pos
-                    self.end_pos = pred.end_pos
-                    self.confidence = pred.confidence
-                    self.pattern_name = f"ensemble-{'-'.join(pred.source_models)}"
-
-            detected_pii.append(EnsembleMatch(pred))
-
-        # Create masked version
-        masked_text = mask_pii_in_text(input_data.text, detected_pii)
-
-        # Convert to API response format
-        pii_list = []
-        for pred in ensemble_predictions:
-            pii_list.append({
-                "text": pred.text,
-                "pii_type": pred.pii_type,
-                "start_pos": pred.start_pos,
-                "end_pos": pred.end_pos,
-                "confidence": pred.confidence,
-                "detection_method": "ensemble",
-                "source_models": pred.source_models,
-                "individual_scores": pred.individual_scores
-            })
-
-        # Create summary
-        summary = {}
-        for pred in ensemble_predictions:
-            summary[pred.pii_type] = summary.get(pred.pii_type, 0) + 1
-
-        return PIIResponse(
-            original_text=input_data.text,
-            masked_text=masked_text,
-            detected_pii=pii_list,
-            summary=summary
-        )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error in ensemble detection: {str(e)}")
+# Ensemble endpoint removed to reduce complexity
 
 @app.post("/detect-batch")
 async def detect_pii_batch(texts: List[str], min_confidence: float = 0.7):
@@ -648,26 +587,12 @@ async def test_competition_examples():
 
     return {"competition_test_results": results}
 
-# Initialize ensemble components with proper error handling
-ensemble_available = False
-ensemble_detector = None
-
-try:
-    from model_ensemble import AdvancedEnsembleDetector
-    ensemble_detector = AdvancedEnsembleDetector()
-    ensemble_available = True
-    print("✅ Ensemble detection available")
-except ImportError as e:
-    print(f"⚠️ Ensemble detection not available: {e}")
-    class DummyEnsembleDetector:
-        def detect_ensemble_pii(self, text, min_confidence):
-            return []
-    ensemble_detector = DummyEnsembleDetector()
+# Simplified - no ensemble detection to reduce complexity
 
 if __name__ == "__main__":
     import uvicorn
-    print(f"🚀 Starting PII Detection Server")
-    print(f"   Rule-based detection: ✅ Available")
-    print(f"   Ensemble detection: {'✅ Available' if ensemble_available else '❌ Not available'}")
+    print(f"🚀 Starting Optimized PII Detection Server")
+    print(f"   Rule-based detection: ✅ Available") 
+    print(f"   Memory optimized: ✅ Streamlined")
     print(f"   Server: http://0.0.0.0:5000")
     uvicorn.run(app, host="0.0.0.0", port=5000)
