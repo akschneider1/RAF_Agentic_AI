@@ -83,7 +83,7 @@ class JordanGazetteerScraper:
                 'https://joc.jo',       # Jordan Olympic Committee
                 'https://jfa.com.jo',   # Jordan Football Association
                 'https://moc.gov.jo'    # Ministry of Culture
-            ]
+            ],
             'universities': [
                 'University of Jordan', 'Jordan University of Science and Technology',
                 'Yarmouk University', 'Mu\'tah University', 'Al-Balqa Applied University',
