@@ -30,7 +30,11 @@ class PIIDetector:
             'IBAN': self._get_iban_patterns(),
             'CREDIT_CARD': self._get_credit_card_patterns(),
             'PASSPORT': self._get_passport_patterns(),
-            'LICENSE_PLATE': self._get_license_plate_patterns()
+            'LICENSE_PLATE': self._get_license_plate_patterns(),
+            'IMEI': self._get_imei_patterns(),
+            'IP_ADDRESS': self._get_ip_address_patterns(),
+            'LICENSE_NUMBER': self._get_license_number_patterns(),
+            'AGE': self._get_age_patterns()
         }
 
     def _get_phone_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
@@ -232,6 +236,52 @@ class PIIDetector:
 
         return patterns
 
+    def _get_imei_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
+        """Define IMEI number patterns"""
+        patterns = [
+            # Standard IMEI format: XX-XXXXXX-XXXXXX-X
+            (r'\b\d{2}-\d{6}-\d{6}-\d{1}\b', 'IMEI Standard Format', 0.95),
+            # Alternative IMEI format: XXXXXXXXXXXXXXX (15 digits)
+            (r'\b\d{15}\b', 'IMEI 15-Digit', 0.85),
+            # IMEI with spaces: XX XXXXXX XXXXXX X
+            (r'\b\d{2}\s\d{6}\s\d{6}\s\d{1}\b', 'IMEI Spaced Format', 0.90),
+        ]
+        return patterns
+
+    def _get_ip_address_patterns(self) ->  List[Tuple[str, re.Pattern, float]]:
+        """Define IP address patterns (IPv4 and IPv6)"""
+        patterns = [
+            # IPv4 addresses
+            (r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b', 'IPv4 Address', 0.90),
+            # IPv6 addresses (simplified pattern)
+            (r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b', 'IPv6 Full', 0.95),
+            # IPv6 compressed format
+            (r'\b[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?(?::[0-9a-fA-F]{1,4}){0,7}\b', 'IPv6 Compressed', 0.90),
+        ]
+        return patterns
+
+    def _get_license_number_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
+        """Define license/reference number patterns"""
+        patterns = [
+            # Alphanumeric license format: 78B5R2MVFAHJ48500
+            (r'\b[0-9A-Z]{10,20}\b', 'License Alphanumeric', 0.75),
+            # Mixed format with numbers and letters
+            (r'\b[A-Z]{2,4}\d{4,12}[A-Z]{0,4}\b', 'License Mixed Format', 0.80),
+            # Reference numbers (common in Arabic documents)
+            (r'\b(?:رقم|رخصة|مرجع)\s*:?\s*([A-Z0-9]{6,15})\b', 'Arabic Reference Number', 0.85),
+        ]
+        return patterns
+
+    def _get_age_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
+        """Define age number patterns in Arabic context"""
+        patterns = [
+            # Arabic age patterns: "88 عامًا", "من العمر 25"
+            (r'(?:من\s+العمر|عمره|عمرها|البالغ)\s+(\d{1,3})\s*(?:عام|سنة)', 'Arabic Age Pattern', 0.90),
+            # Simple age in years context
+            (r'(\d{1,3})\s+(?:عامًا|سنة|عام)', 'Age Years Arabic', 0.85),
+        ]
+        return patterns
+
     def detect_saudi_mobile_numbers(self, text: str) -> List[PIIMatch]:
         """
         Specialized function to detect Saudi Arabian mobile numbers
@@ -345,6 +395,136 @@ class PIIDetector:
         # Check if mod 97 equals 1
         return int(numeric) % 97 == 1
 
+    def detect_imei_numbers(self, text: str) -> List[PIIMatch]:
+        """Detect IMEI numbers (15-digit device identifiers)"""
+        patterns = [
+            # Standard IMEI format: XX-XXXXXX-XXXXXX-X
+            (r'\b\d{2}-\d{6}-\d{6}-\d{1}\b', 'IMEI Standard Format', 0.95),
+            # Alternative IMEI format: XXXXXXXXXXXXXXX (15 digits)
+            (r'\b\d{15}\b', 'IMEI 15-Digit', 0.85),
+            # IMEI with spaces: XX XXXXXX XXXXXX X
+            (r'\b\d{2}\s\d{6}\s\d{6}\s\d{1}\b', 'IMEI Spaced Format', 0.90),
+        ]
+
+        matches = []
+        for pattern, name, confidence in patterns:
+            for match in re.finditer(pattern, text):
+                matches.append(PIIMatch(
+                    text=match.group(),
+                    pii_type="IMEI",
+                    start_pos=match.start(),
+                    end_pos=match.end(),
+                    confidence=confidence,
+                    pattern_name=name
+                ))
+
+        return matches
+
+    def detect_ip_addresses(self, text: str) -> List[PIIMatch]:
+        """Detect IP addresses (IPv4 and IPv6)"""
+        patterns = [
+            # IPv4 addresses
+            (r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b', 'IPv4 Address', 0.90),
+            # IPv6 addresses (simplified pattern)
+            (r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b', 'IPv6 Full', 0.95),
+            # IPv6 compressed format
+            (r'\b[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?(?::[0-9a-fA-F]{1,4}){0,7}\b', 'IPv6 Compressed', 0.90),
+        ]
+
+        matches = []
+        for pattern, name, confidence in patterns:
+            for match in re.finditer(pattern, text):
+                matches.append(PIIMatch(
+                    text=match.group(),
+                    pii_type="IP_ADDRESS",
+                    start_pos=match.start(),
+                    end_pos=match.end(),
+                    confidence=confidence,
+                    pattern_name=name
+                ))
+
+        return matches
+
+    def detect_license_numbers(self, text: str) -> List[PIIMatch]:
+        """Detect license/reference numbers"""
+        patterns = [
+            # Alphanumeric license format: 78B5R2MVFAHJ48500
+            (r'\b[0-9A-Z]{10,20}\b', 'License Alphanumeric', 0.75),
+            # Mixed format with numbers and letters
+            (r'\b[A-Z]{2,4}\d{4,12}[A-Z]{0,4}\b', 'License Mixed Format', 0.80),
+            # Reference numbers (common in Arabic documents)
+            (r'\b(?:رقم|رخصة|مرجع)\s*:?\s*([A-Z0-9]{6,15})\b', 'Arabic Reference Number', 0.85),
+        ]
+
+        matches = []
+        for pattern, name, confidence in patterns:
+            for match in re.finditer(pattern, text):
+                # For Arabic reference pattern, extract the number part
+                if "Arabic" in name and match.groups():
+                    number_text = match.group(1)
+                    # Find the position of the number within the full match
+                    full_match = match.group()
+                    number_start = full_match.find(number_text)
+                    start_pos = match.start() + number_start
+                    end_pos = start_pos + len(number_text)
+
+                    matches.append(PIIMatch(
+                        text=number_text,
+                        pii_type="LICENSE_NUMBER",
+                        start_pos=start_pos,
+                        end_pos=end_pos,
+                        confidence=confidence,
+                        pattern_name=name
+                    ))
+                else:
+                    matches.append(PIIMatch(
+                        text=match.group(),
+                        pii_type="LICENSE_NUMBER",
+                        start_pos=match.start(),
+                        end_pos=match.end(),
+                        confidence=confidence,
+                        pattern_name=name
+                    ))
+
+        return matches
+
+    def detect_age_numbers(self, text: str) -> List[PIIMatch]:
+        """Detect age numbers in Arabic context"""
+        patterns = [
+            # Arabic age patterns: "88 عامًا", "من العمر 25"
+            (r'(?:من\s+العمر|عمره|عمرها|البالغ)\s+(\d{1,3})\s*(?:عام|سنة)', 'Arabic Age Pattern', 0.90),
+            # Simple age in years context
+            (r'(\d{1,3})\s+(?:عامًا|سنة|عام)', 'Age Years Arabic', 0.85),
+        ]
+
+        matches = []
+        for pattern, name, confidence in patterns:
+            for match in re.finditer(pattern, text):
+                if match.groups():
+                    age_number = match.group(1)
+                    # Find position of the age number
+                    full_match = match.group()
+                    number_start = full_match.find(age_number)
+                    start_pos = match.start() + number_start
+                    end_pos = start_pos + len(age_number)
+
+                    # Validate age range (realistic ages)
+                    try:
+                        age = int(age_number)
+                        if 1 <= age <= 120:  # Reasonable age range
+                            matches.append(PIIMatch(
+                                text=age_number,
+                                pii_type="AGE",
+                                start_pos=start_pos,
+                                end_pos=end_pos,
+                                confidence=confidence,
+                                pattern_name=name
+                            ))
+                    except ValueError:
+                        continue
+
+        return matches
+
 def test_pii_detector():
     """Test function to demonstrate the PII detector capabilities"""
     detector = PIIDetector()
@@ -361,6 +541,11 @@ def test_pii_detector():
     You can also reach me at john.doe@company.org
     Phone: +962 77 123 4567
     IBAN: JO94 CBJO 0010 0000 0000 0131 0003
+    IMEI: 12-345678-901234-5
+    IP Address: 192.168.1.1
+    License Number: A1234567890
+    Age: عمري 25 عاما
+
     """
 
     print("Testing Saudi Mobile Number Detection:")

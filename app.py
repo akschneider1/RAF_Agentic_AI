@@ -22,7 +22,7 @@ class PIIResponse(BaseModel):
     summary: Dict[str, int]
 
 def mask_pii_in_text(text: str, pii_matches: List[PIIMatch]) -> str:
-    """Replace detected PII with masked placeholders"""
+    """Replace detected PII with [MASKED] tokens as per competition format"""
     if not pii_matches:
         return text
 
@@ -31,8 +31,8 @@ def mask_pii_in_text(text: str, pii_matches: List[PIIMatch]) -> str:
 
     masked_text = text
     for match in sorted_matches:
-        # Create a mask based on PII type
-        mask = f"[{match.pii_type}_{match.pattern_name.replace(' ', '_').upper()}]"
+        # Use competition standard [MASKED] format
+        mask = "[MASKED]"
         masked_text = masked_text[:match.start_pos] + mask + masked_text[match.end_pos:]
 
     return masked_text
@@ -573,6 +573,35 @@ async def test_saudi_mobile_endpoint():
         })
 
     return {"test_results": results}
+
+@app.get("/test-competition")
+async def test_competition_examples():
+    """Test with official competition examples"""
+    test_cases = [
+        # Official examples from challenge
+        "يعمل احمد محمد في شركة تقنية",
+        "للتواصل مع سارة على الرقم 0501234567",
+        "تم العثور على تقييم طالب على جهاز يحمل رقم IMEI: 06-184755-866851-3",
+        "أنا جاريك موراي. سأقوم باستلام نتائج الفحص",
+        "عزيزتي كارمن، بصفتك مهندسة العلامة التجارية الوطنية لدينا",
+        "الطفل البالغ من العمر 88 عامًا في 5862",
+        "IPv6 edaf:fd8f:e1e8:cfec:8bab:1afd:6aad:550c",
+        "رخصتك 78B5R2MVFAHJ48500 لا تزال مسجلة",
+    ]
+    
+    results = []
+    for test_text in test_cases:
+        detected_pii = detector.detect_all_pii(test_text, min_confidence=0.7)
+        masked_text = mask_pii_in_text(test_text, detected_pii)
+        
+        results.append({
+            "source": test_text,
+            "target": masked_text,
+            "detected_pii_count": len(detected_pii),
+            "detected_types": [match.pii_type for match in detected_pii]
+        })
+    
+    return {"competition_test_results": results}
 
 if __name__ == "__main__":
     import uvicorn
