@@ -144,33 +144,44 @@ class NERTrainer:
         return results
     
     def create_training_arguments(self, output_dir: str = "./model_checkpoints"):
-        """Create memory-optimized training arguments"""
+        """Create optimized training arguments with advanced strategies"""
         return TrainingArguments(
             output_dir=output_dir,
             learning_rate=2e-5,
-            per_device_train_batch_size=4,  # Reduced from 16
-            per_device_eval_batch_size=4,   # Reduced from 16
-            gradient_accumulation_steps=4,   # Maintain effective batch size of 16
-            num_train_epochs=3,
+            per_device_train_batch_size=8,   # Slightly increased
+            per_device_eval_batch_size=8,    
+            gradient_accumulation_steps=4,   
+            num_train_epochs=5,              # Increased epochs
             weight_decay=0.01,
             evaluation_strategy="steps",
-            eval_steps=1000,  # Less frequent evaluation
+            eval_steps=500,                  # More frequent evaluation
             save_strategy="steps",
-            save_steps=1000,
+            save_steps=500,
             logging_strategy="steps",
-            logging_steps=200,
+            logging_steps=100,
             load_best_model_at_end=True,
             metric_for_best_model="f1",
             greater_is_better=True,
-            save_total_limit=1,  # Keep only 1 checkpoint
-            report_to=None,  # Disable wandb/tensorboard
+            save_total_limit=3,              # Keep more checkpoints
+            report_to=None,
             seed=42,
-            fp16=False,  # Disable mixed precision for stability
+            fp16=True,                       # Enable mixed precision for efficiency
             dataloader_pin_memory=False,
-            dataloader_num_workers=0,  # Disable multiprocessing
+            dataloader_num_workers=0,
             remove_unused_columns=False,
             push_to_hub=False,
             prediction_loss_only=False,
+            # Advanced training strategies
+            warmup_steps=500,                # Learning rate warmup
+            lr_scheduler_type="linear",      # Learning rate scheduling
+            optim="adamw_torch",            # Optimizer selection
+            gradient_checkpointing=True,     # Memory optimization
+            dataloader_drop_last=False,     # Keep all data
+            eval_accumulation_steps=1,      # Evaluation efficiency
+            # Early stopping
+            load_best_model_at_end=True,
+            metric_for_best_model="eval_f1",
+            greater_is_better=True,
         )
     
     def train(self):
