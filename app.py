@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -24,16 +23,16 @@ def mask_pii_in_text(text: str, pii_matches: List[PIIMatch]) -> str:
     """Replace detected PII with masked placeholders"""
     if not pii_matches:
         return text
-    
+
     # Sort matches by start position in reverse order to avoid index shifting
     sorted_matches = sorted(pii_matches, key=lambda x: x.start_pos, reverse=True)
-    
+
     masked_text = text
     for match in sorted_matches:
         # Create a mask based on PII type
         mask = f"[{match.pii_type}_{match.pattern_name.replace(' ', '_').upper()}]"
         masked_text = masked_text[:match.start_pos] + mask + masked_text[match.end_pos:]
-    
+
     return masked_text
 
 @app.get("/", response_class=HTMLResponse)
@@ -177,26 +176,26 @@ async def get_test_interface():
     <body>
         <div class="container">
             <h1>🔍 PII Detection Engine Tester</h1>
-            
+
             <div class="form-group">
                 <label for="textInput">Enter text to test for PII detection:</label>
                 <textarea id="textInput" placeholder="Enter Arabic or English text containing potential PII like phone numbers, emails, IBANs, etc."></textarea>
             </div>
-            
+
             <div class="form-group">
                 <label for="confidenceSlider">Minimum Confidence Threshold:</label>
                 <input type="range" id="confidenceSlider" min="0.1" max="1.0" step="0.1" value="0.7">
                 <div class="confidence-display">0.7</div>
             </div>
-            
+
             <button onclick="testPIIDetection()" id="testButton">🔍 Detect PII</button>
-            
+
             <div class="loading" id="loading">
                 <p>🔄 Processing...</p>
             </div>
-            
+
             <div id="results"></div>
-            
+
             <div class="examples">
                 <h3>📋 Test Examples (Click to use):</h3>
                 <div class="example-text" onclick="useExample(this)">
@@ -223,31 +222,31 @@ Mixed: call 05 1 234 5678 or email test@domain.com
         <script>
             const confidenceSlider = document.getElementById('confidenceSlider');
             const confidenceDisplay = document.querySelector('.confidence-display');
-            
+
             confidenceSlider.addEventListener('input', function() {
                 confidenceDisplay.textContent = this.value;
             });
-            
+
             function useExample(element) {
                 document.getElementById('textInput').value = element.textContent.trim();
             }
-            
+
             async function testPIIDetection() {
                 const textInput = document.getElementById('textInput').value;
                 const confidence = parseFloat(document.getElementById('confidenceSlider').value);
                 const resultsDiv = document.getElementById('results');
                 const testButton = document.getElementById('testButton');
                 const loading = document.getElementById('loading');
-                
+
                 if (!textInput.trim()) {
                     resultsDiv.innerHTML = '<div class="error">Please enter some text to test.</div>';
                     return;
                 }
-                
+
                 testButton.disabled = true;
                 loading.style.display = 'block';
                 resultsDiv.innerHTML = '';
-                
+
                 try {
                     const response = await fetch('/detect', {
                         method: 'POST',
@@ -259,14 +258,14 @@ Mixed: call 05 1 234 5678 or email test@domain.com
                             min_confidence: confidence
                         })
                     });
-                    
+
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    
+
                     const data = await response.json();
                     displayResults(data);
-                    
+
                 } catch (error) {
                     resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
                 } finally {
@@ -274,13 +273,13 @@ Mixed: call 05 1 234 5678 or email test@domain.com
                     loading.style.display = 'none';
                 }
             }
-            
+
             function displayResults(data) {
                 const resultsDiv = document.getElementById('results');
-                
+
                 let html = '<div class="results">';
                 html += '<h3>🎯 Detection Results</h3>';
-                
+
                 // Summary
                 html += '<div class="summary">';
                 html += '<h4>📊 Summary</h4>';
@@ -290,16 +289,16 @@ Mixed: call 05 1 234 5678 or email test@domain.com
                 }
                 html += '</ul>';
                 html += '</div>';
-                
+
                 // Masked text
                 html += '<h4>🔒 Masked Text</h4>';
                 html += `<div class="masked-text">${escapeHtml(data.masked_text)}</div>`;
-                
+
                 // Detected PII details
                 if (data.detected_pii.length > 0) {
                     html += '<div class="detected-pii">';
                     html += '<h4>🏷️ Detected PII Details</h4>';
-                    
+
                     data.detected_pii.forEach((pii, index) => {
                         html += `<div class="pii-item">`;
                         html += `<strong>Type:</strong> ${pii.pii_type}<br>`;
@@ -309,22 +308,22 @@ Mixed: call 05 1 234 5678 or email test@domain.com
                         html += `<strong>Position:</strong> ${pii.start_pos}-${pii.end_pos}`;
                         html += '</div>';
                     });
-                    
+
                     html += '</div>';
                 } else {
                     html += '<p><em>No PII detected with the current confidence threshold.</em></p>';
                 }
-                
+
                 html += '</div>';
                 resultsDiv.innerHTML = html;
             }
-            
+
             function escapeHtml(text) {
                 const div = document.createElement('div');
                 div.textContent = text;
                 return div.innerHTML;
             }
-            
+
             // Allow testing with Enter key
             document.getElementById('textInput').addEventListener('keydown', function(event) {
                 if (event.ctrlKey && event.key === 'Enter') {
@@ -339,14 +338,14 @@ Mixed: call 05 1 234 5678 or email test@domain.com
 
 @app.post("/detect", response_model=PIIResponse)
 async def detect_pii(input_data: TextInput):
-    """Detect PII in the provided text and return masked version"""
+    """Detect PII in the provided text using rule-based approach"""
     try:
         # Detect all PII in the text
         detected_pii = detector.detect_all_pii(input_data.text, input_data.min_confidence)
-        
+
         # Create masked version
         masked_text = mask_pii_in_text(input_data.text, detected_pii)
-        
+
         # Convert PIIMatch objects to dictionaries
         pii_list = []
         for match in detected_pii:
@@ -356,23 +355,87 @@ async def detect_pii(input_data: TextInput):
                 "start_pos": match.start_pos,
                 "end_pos": match.end_pos,
                 "confidence": match.confidence,
-                "pattern_name": match.pattern_name
+                "pattern_name": match.pattern_name,
+                "detection_method": "rules"
             })
-        
+
         # Create summary
         summary = {}
         for match in detected_pii:
             summary[match.pii_type] = summary.get(match.pii_type, 0) + 1
-        
+
         return PIIResponse(
             original_text=input_data.text,
             masked_text=masked_text,
             detected_pii=pii_list,
             summary=summary
         )
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error detecting PII: {str(e)}")
+
+@app.post("/detect-ensemble", response_model=PIIResponse)
+async def detect_pii_ensemble(input_data: TextInput):
+    """Detect PII using ensemble approach (rules + MutazYoune model)"""
+    if not ensemble_available:
+        raise HTTPException(
+            status_code=503, 
+            detail="Ensemble detection not available. MutazYoune model could not be loaded."
+        )
+
+    try:
+        # Get ensemble predictions
+        ensemble_predictions = ensemble_detector.detect_ensemble_pii(
+            input_data.text, 
+            input_data.min_confidence
+        )
+
+        # Convert to standard format for masking
+        detected_pii = []
+        for pred in ensemble_predictions:
+            # Create a PIIMatch-like object for compatibility with masking function
+            class EnsembleMatch:
+                def __init__(self, pred):
+                    self.text = pred.text
+                    self.pii_type = pred.pii_type
+                    self.start_pos = pred.start_pos
+                    self.end_pos = pred.end_pos
+                    self.confidence = pred.confidence
+                    self.pattern_name = f"ensemble-{'-'.join(pred.source_models)}"
+
+            detected_pii.append(EnsembleMatch(pred))
+
+        # Create masked version
+        masked_text = mask_pii_in_text(input_data.text, detected_pii)
+
+        # Convert to API response format
+        pii_list = []
+        for pred in ensemble_predictions:
+            pii_list.append({
+                "text": pred.text,
+                "pii_type": pred.pii_type,
+                "start_pos": pred.start_pos,
+                "end_pos": pred.end_pos,
+                "confidence": pred.confidence,
+                "detection_method": "ensemble",
+                "source_models": pred.source_models,
+                "individual_scores": pred.individual_scores
+            })
+
+        # Create summary
+        summary = {}
+        for pred in ensemble_predictions:
+            summary[pred.pii_type] = summary.get(pred.pii_type, 0) + 1
+
+        return PIIResponse(
+            original_text=input_data.text,
+            masked_text=masked_text,
+            detected_pii=pii_list,
+            summary=summary
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in ensemble detection: {str(e)}")
 
 @app.post("/mask")
 async def mask_text(input_data: TextInput):
@@ -380,12 +443,12 @@ async def mask_text(input_data: TextInput):
     try:
         # Detect PII
         detected_pii = detector.detect_all_pii(input_data.text, input_data.min_confidence)
-        
+
         # Return masked text
         masked_text = mask_pii_in_text(input_data.text, detected_pii)
-        
+
         return {"masked_text": masked_text}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error masking text: {str(e)}")
 
@@ -398,24 +461,24 @@ async def test_enhanced_detection_endpoint():
         "Credit card number: 5555555555554444 MasterCard",
         "AmEx: 378282246310005",
         "Invalid card: 1234567890123456",
-        
+
         # Mixed Arabic-English context
         "اتصل بي على رقم +966501234567 أو email me at ahmed@test.com",
         "هويتي الوطنية رقم 1234567890 وبطاقة visa 4111111111111111",
-        
+
         # Regional dialects and variations
         "أرقام مختلفة: ٠٥٠١٢٣٤٥٦٧ و ۰۵۰۱۲۳۴۵۶۷",
         "Different numbers: 05-012-34567 and +966 50 123 4567",
-        
+
         # Context with negation
         "This is not a real credit card: 4111111111111111",
         "هذا مثال وهمي: +966501234567",
-        
+
         # High-confidence context
         "لطفاً اتصل بي على هاتفي 0501234567",
         "Please contact me at my phone number +966501234567",
     ]
-    
+
     results = []
     for test_text in test_cases:
         matches = detector.detect_all_pii(test_text, min_confidence=0.5)
@@ -430,7 +493,7 @@ async def test_enhanced_detection_endpoint():
                 "position": f"{m.start_pos}-{m.end_pos}"
             } for m in matches]
         })
-    
+
     return {"enhanced_test_results": results}
 
 @app.get("/test-saudi-mobile")
@@ -448,7 +511,7 @@ async def test_saudi_mobile_endpoint():
         "Invalid: +966 40 123 4567",  # Invalid prefix
         "Invalid: 0601234567",        # Invalid prefix
     ]
-    
+
     results = []
     for test_text in test_cases:
         matches = detector.detect_saudi_mobile_numbers(test_text)
@@ -457,9 +520,16 @@ async def test_saudi_mobile_endpoint():
             "detected": len(matches) > 0,
             "matches": [{"text": m.text, "confidence": m.confidence, "pattern": m.pattern_name} for m in matches]
         })
-    
+
     return {"test_results": results}
 
 if __name__ == "__main__":
     import uvicorn
+    # Assuming ensemble_available and ensemble_detector are defined elsewhere (e.g., in rules.py)
+    ensemble_available = False # Replace with actual check if the ensemble model is loaded
+    class EnsembleDetector:
+        def detect_ensemble_pii(self, text, min_confidence):
+            return []
+    ensemble_detector = EnsembleDetector()
+
     uvicorn.run(app, host="0.0.0.0", port=5000)
