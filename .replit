@@ -30,7 +30,7 @@ args = "python app.py"
 [[workflows.workflow]]
 name = "Train Model"
 author = 39062319
-mode = "sequential"
+mode = "parallel"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
