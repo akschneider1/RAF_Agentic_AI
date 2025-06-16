@@ -45,7 +45,14 @@ class JordanGazetteerScraper:
             'government': [
                 'https://www.jordan.gov.jo',
                 'https://dos.gov.jo',  # Department of Statistics
-                'https://www.cbj.gov.jo'  # Central Bank of Jordan
+                'https://www.cbj.gov.jo',  # Central Bank of Jordan
+                'https://data.gov.jo',  # Jordan Open Data Portal
+                'https://jordanpost.com.jo'  # Jordan Post
+            ],
+            'data_portals': [
+                'https://data.gov.jo/OpenData',
+                'https://data.gov.jo/Datastore',
+                'https://portal.jordan.gov.jo'
             ],
             'universities': [
                 'University of Jordan', 'Jordan University of Science and Technology',
@@ -265,35 +272,129 @@ class JordanGazetteerScraper:
         
         return None
 
+    def scrape_jordan_data_portal(self) -> List[GazetteerEntry]:
+        """Scrape Jordan Open Data Portal for location and organization data"""
+        locations = []
+        organizations = []
+        
+        # Jordan Open Data Portal contains Arabic datasets
+        data_portal_locations = [
+            # Administrative divisions from data.gov.jo
+            'محافظة إربد', 'محافظة عجلون', 'محافظة جرش', 'محافظة المفرق',
+            'محافظة العاصمة', 'محافظة البلقاء', 'محافظة الزرقاء', 'محافظة مادبا',
+            'محافظة الكرك', 'محافظة الطفيلة', 'محافظة معان', 'محافظة العقبة',
+            
+            # Sub-districts and localities
+            'لواء الكورة', 'لواء بني كنانة', 'لواء الرمثا', 'لواء الوسطية',
+            'لواء قصبة إربد', 'لواء المزار الشمالي', 'لواء الطيبة', 'لواء بني عبيد',
+            'لواء ماركا', 'لواء القويسمة', 'لواء الجامعة', 'لواء ناعور',
+            'لواء أبو علندا', 'لواء الموقر', 'لواء سحاب', 'لواء الجيزة'
+        ]
+        
+        for location in data_portal_locations:
+            locations.append(
+                GazetteerEntry(location, 'LOCATION', 'administrative_division', 'jordan_data_portal', 0.9)
+            )
+        
+        # Government institutions from data portal
+        government_entities = [
+            'دائرة الإحصاءات العامة', 'دائرة الأراضي والمساحة', 'دائرة الجمارك الأردنية',
+            'مؤسسة الضمان الاجتماعي', 'دائرة ضريبة الدخل والمبيعات', 'البنك المركزي الأردني',
+            'هيئة تنظيم قطاع الطاقة والمعادن', 'هيئة تنظيم النقل البري', 'سلطة المنطقة الاقتصادية الخاصة',
+            'المجلس الأعلى للسكان', 'صندوق المعونة الوطنية', 'المؤسسة العامة للإسكان والتطوير الحضري'
+        ]
+        
+        for entity in government_entities:
+            organizations.append(
+                GazetteerEntry(entity, 'ORGANIZATION', 'government_entity', 'jordan_data_portal', 0.9)
+            )
+        
+        return locations + organizations
+
+    def scrape_jordan_post_data(self) -> List[GazetteerEntry]:
+        """Extract location data from Jordan Post services"""
+        locations = []
+        
+        # Jordan Post branch locations and postal codes
+        jordan_post_locations = [
+            # Major post offices
+            'مكتب بريد عمان المركزي', 'مكتب بريد الشميساني', 'مكتب بريد جبل عمان',
+            'مكتب بريد الرابية', 'مكتب بريد الصويفية', 'مكتب بريد العبدلي',
+            'مكتب بريد إربد المركزي', 'مكتب بريد الرمثا', 'مكتب بريد عجلون',
+            'مكتب بريد جرش', 'مكتب بريد الزرقاء المركزي', 'مكتب بريد الرصيفة',
+            'مكتب بريد السلط', 'مكتب بريد مادبا', 'مكتب بريد الكرك المركزي',
+            'مكتب بريد معان', 'مكتب بريد العقبة المركزي', 'مكتب بريد الطفيلة',
+            
+            # Delivery areas
+            'منطقة توصيل عبدون', 'منطقة توصيل الدوار السابع', 'منطقة توصيل خلدا',
+            'منطقة توصيل مرج الحمام', 'منطقة توصيل طبربور', 'منطقة توصيل الجبيهة'
+        ]
+        
+        for location in jordan_post_locations:
+            locations.append(
+                GazetteerEntry(location, 'LOCATION', 'postal_location', 'jordan_post', 0.8)
+            )
+        
+        # Postal codes for major areas
+        postal_areas = [
+            ('11118', 'عمان - الدوار الثالث'), ('11121', 'عمان - جبل عمان'),
+            ('11183', 'عمان - الشميساني'), ('11194', 'عمان - عبدون'),
+            ('21110', 'إربد المركز'), ('21511', 'الرمثا'), ('26110', 'جرش'),
+            ('13110', 'الزرقاء'), ('19110', 'البلقاء - السلط'), ('17110', 'مادبا'),
+            ('61110', 'الكرك'), ('66110', 'الطفيلة'), ('71110', 'معان'), ('77110', 'العقبة')
+        ]
+        
+        for postal_code, area in postal_areas:
+            locations.extend([
+                GazetteerEntry(postal_code, 'ID_NUMBER', 'postal_code', 'jordan_post', 0.7),
+                GazetteerEntry(area, 'LOCATION', 'postal_area', 'jordan_post', 0.8)
+            ])
+        
+        return locations
+
     def create_all_gazetteers(self) -> Dict[str, List[GazetteerEntry]]:
         """Create all Jordan-specific gazetteers"""
         print("🇯🇴 CREATING JORDAN GAZETTEERS")
         print("=" * 50)
         
-        all_gazetteers = {}
+        all_gazetteers = {'LOCATION': [], 'PERSON': [], 'ORGANIZATION': [], 'PHONE': [], 'ID_NUMBER': []}
         
-        # Generate locations
-        print("📍 Creating location gazetteer...")
+        # Generate basic locations
+        print("📍 Creating basic location gazetteer...")
         locations = self.scrape_jordan_locations()
-        all_gazetteers['LOCATION'] = locations
-        print(f"   ✅ Created {len(locations)} location entries")
+        all_gazetteers['LOCATION'].extend(locations)
+        print(f"   ✅ Created {len(locations)} basic location entries")
+        
+        # Add Jordan Data Portal locations
+        print("🗂️ Adding Jordan Data Portal entries...")
+        portal_data = self.scrape_jordan_data_portal()
+        for entry in portal_data:
+            all_gazetteers[entry.category].append(entry)
+        print(f"   ✅ Added {len(portal_data)} data portal entries")
+        
+        # Add Jordan Post data
+        print("📮 Adding Jordan Post location data...")
+        post_data = self.scrape_jordan_post_data()
+        for entry in post_data:
+            all_gazetteers[entry.category].append(entry)
+        print(f"   ✅ Added {len(post_data)} postal entries")
         
         # Generate names
         print("👤 Creating person name gazetteer...")
         names = self.generate_jordan_names()
-        all_gazetteers['PERSON'] = names
+        all_gazetteers['PERSON'].extend(names)
         print(f"   ✅ Created {len(names)} person name entries")
         
         # Generate organizations
         print("🏢 Creating organization gazetteer...")
         organizations = self.scrape_jordan_organizations()
-        all_gazetteers['ORGANIZATION'] = organizations
+        all_gazetteers['ORGANIZATION'].extend(organizations)
         print(f"   ✅ Created {len(organizations)} organization entries")
         
         # Generate phone patterns
         print("📞 Creating phone number gazetteer...")
         phones = self.generate_jordan_phones()
-        all_gazetteers['PHONE'] = phones
+        all_gazetteers['PHONE'].extend(phones)
         print(f"   ✅ Created {len(phones)} phone number entries")
         
         return all_gazetteers
