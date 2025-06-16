@@ -6,9 +6,8 @@ from typing import List, Dict, Any
 import json
 from rules import PIIDetector, PIIMatch
 
-app = FastAPI(title="PII Detection Engine", description="Test rule-based PII detection interactively")
+app = FastAPI(title="PII Detection Engine", description="Arabic and English PII detection system")
 
-# Initialize the PII detector
 detector = PIIDetector()
 
 class TextInput(BaseModel):
@@ -377,7 +376,7 @@ async def detect_pii(input_data: TextInput):
 
 @app.post("/mask")
 async def mask_text(input_data: TextInput):
-    """Legacy endpoint for simple masking (as requested in prompt)"""
+    """Legacy endpoint for simple text masking"""
     try:
         # Detect PII
         detected_pii = detector.detect_all_pii(input_data.text, input_data.min_confidence)

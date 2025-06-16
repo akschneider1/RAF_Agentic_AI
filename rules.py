@@ -152,43 +152,15 @@ class PIIDetector:
         return patterns
     
     def _get_iban_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
-        """Define IBAN patterns for Arab countries"""
         patterns = []
         
-        # Saudi IBAN (SA followed by 22 digits)
-        patterns.append((
-            "Saudi IBAN",
-            re.compile(r'\bSA\d{2}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\b', re.IGNORECASE),
-            0.95
-        ))
-        
-        # UAE IBAN (AE followed by 21 digits)
-        patterns.append((
-            "UAE IBAN",
-            re.compile(r'\bAE\d{2}\s*\d{3}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{3}\b', re.IGNORECASE),
-            0.95
-        ))
-        
-        # Egyptian IBAN (EG followed by 27 digits)
-        patterns.append((
-            "Egypt IBAN",
-            re.compile(r'\bEG\d{2}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{3}\b', re.IGNORECASE),
-            0.95
-        ))
-        
-        # Jordan IBAN (JO followed by 28 digits)
-        patterns.append((
-            "Jordan IBAN",
-            re.compile(r'\bJO\d{2}\s*[A-Z]{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\b', re.IGNORECASE),
-            0.95
-        ))
-        
-        # Generic IBAN pattern
-        patterns.append((
-            "Generic IBAN",
-            re.compile(r'\b[A-Z]{2}\d{2}\s*[A-Z0-9]{4}\s*\d{4}\s*\d{4}\s*[A-Z0-9]*\b', re.IGNORECASE),
-            0.85
-        ))
+        patterns.extend([
+            ("Saudi IBAN", re.compile(r'\bSA\d{2}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\b', re.IGNORECASE), 0.95),
+            ("UAE IBAN", re.compile(r'\bAE\d{2}\s*\d{3}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{3}\b', re.IGNORECASE), 0.95),
+            ("Egypt IBAN", re.compile(r'\bEG\d{2}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{3}\b', re.IGNORECASE), 0.95),
+            ("Jordan IBAN", re.compile(r'\bJO\d{2}\s*[A-Z]{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\b', re.IGNORECASE), 0.95),
+            ("Generic IBAN", re.compile(r'\b[A-Z]{2}\d{2}\s*[A-Z0-9]{4}\s*\d{4}\s*\d{4}\s*[A-Z0-9]*\b', re.IGNORECASE), 0.85)
+        ])
         
         return patterns
     
