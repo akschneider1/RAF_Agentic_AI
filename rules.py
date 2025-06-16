@@ -247,48 +247,103 @@ class PIIDetector:
 
     def _get_imei_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define IMEI number patterns"""
-        patterns = [
-            # Standard IMEI format: XX-XXXXXX-XXXXXX-X
-            (r'\b\d{2}-\d{6}-\d{6}-\d{1}\b', 'IMEI Standard Format', 0.95),
-            # Alternative IMEI format: XXXXXXXXXXXXXXX (15 digits)
-            (r'\b\d{15}\b', 'IMEI 15-Digit', 0.85),
-            # IMEI with spaces: XX XXXXXX XXXXXX X
-            (r'\b\d{2}\s\d{6}\s\d{6}\s\d{1}\b', 'IMEI Spaced Format', 0.90),
-        ]
+        patterns = []
+        
+        # Standard IMEI format: XX-XXXXXX-XXXXXX-X
+        patterns.append((
+            "IMEI Standard Format",
+            re.compile(r'\b\d{2}-\d{6}-\d{6}-\d{1}\b'),
+            0.95
+        ))
+        
+        # Alternative IMEI format: XXXXXXXXXXXXXXX (15 digits)
+        patterns.append((
+            "IMEI 15-Digit",
+            re.compile(r'\b\d{15}\b'),
+            0.85
+        ))
+        
+        # IMEI with spaces: XX XXXXXX XXXXXX X
+        patterns.append((
+            "IMEI Spaced Format",
+            re.compile(r'\b\d{2}\s\d{6}\s\d{6}\s\d{1}\b'),
+            0.90
+        ))
+        
         return patterns
 
-    def _get_ip_address_patterns(self) ->  List[Tuple[str, re.Pattern, float]]:
+    def _get_ip_address_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define IP address patterns (IPv4 and IPv6)"""
-        patterns = [
-            # IPv4 addresses
-            (r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b', 'IPv4 Address', 0.90),
-            # IPv6 addresses (simplified pattern)
-            (r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b', 'IPv6 Full', 0.95),
-            # IPv6 compressed format
-            (r'\b[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?(?::[0-9a-fA-F]{1,4}){0,7}\b', 'IPv6 Compressed', 0.90),
-        ]
+        patterns = []
+        
+        # IPv4 addresses
+        patterns.append((
+            "IPv4 Address",
+            re.compile(r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'),
+            0.90
+        ))
+        
+        # IPv6 addresses (simplified pattern)
+        patterns.append((
+            "IPv6 Full",
+            re.compile(r'\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b'),
+            0.95
+        ))
+        
+        # IPv6 compressed format  
+        patterns.append((
+            "IPv6 Compressed",
+            re.compile(r'\b[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?(?::[0-9a-fA-F]{1,4}){0,7}\b'),
+            0.90
+        ))
+        
         return patterns
 
     def _get_license_number_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define license/reference number patterns"""
-        patterns = [
-            # Alphanumeric license format: 78B5R2MVFAHJ48500
-            (r'\b[0-9A-Z]{10,20}\b', 'License Alphanumeric', 0.75),
-            # Mixed format with numbers and letters
-            (r'\b[A-Z]{2,4}\d{4,12}[A-Z]{0,4}\b', 'License Mixed Format', 0.80),
-            # Reference numbers (common in Arabic documents)
-            (r'\b(?:رقم|رخصة|مرجع)\s*:?\s*([A-Z0-9]{6,15})\b', 'Arabic Reference Number', 0.85),
-        ]
+        patterns = []
+        
+        # Alphanumeric license format: 78B5R2MVFAHJ48500
+        patterns.append((
+            "License Alphanumeric",
+            re.compile(r'\b[0-9A-Z]{10,20}\b'),
+            0.75
+        ))
+        
+        # Mixed format with numbers and letters
+        patterns.append((
+            "License Mixed Format",
+            re.compile(r'\b[A-Z]{2,4}\d{4,12}[A-Z]{0,4}\b'),
+            0.80
+        ))
+        
+        # Reference numbers (common in Arabic documents)
+        patterns.append((
+            "Arabic Reference Number",
+            re.compile(r'\b(?:رقم|رخصة|مرجع)\s*:?\s*([A-Z0-9]{6,15})\b'),
+            0.85
+        ))
+        
         return patterns
 
     def _get_age_patterns(self) -> List[Tuple[str, re.Pattern, float]]:
         """Define age number patterns in Arabic context"""
-        patterns = [
-            # Arabic age patterns: "88 عامًا", "من العمر 25"
-            (r'(?:من\s+العمر|عمره|عمرها|البالغ)\s+(\d{1,3})\s*(?:عام|سنة)', 'Arabic Age Pattern', 0.90),
-            # Simple age in years context
-            (r'(\d{1,3})\s+(?:عامًا|سنة|عام)', 'Age Years Arabic', 0.85),
-        ]
+        patterns = []
+        
+        # Arabic age patterns: "88 عامًا", "من العمر 25"
+        patterns.append((
+            "Arabic Age Pattern",
+            re.compile(r'(?:من\s+العمر|عمره|عمرها|البالغ)\s+(\d{1,3})\s*(?:عام|سنة)'),
+            0.90
+        ))
+        
+        # Simple age in years context
+        patterns.append((
+            "Age Years Arabic",
+            re.compile(r'(\d{1,3})\s+(?:عامًا|سنة|عام)'),
+            0.85
+        ))
+        
         return patterns
 
     def detect_saudi_mobile_numbers(self, text: str) -> List[PIIMatch]:

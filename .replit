@@ -36,6 +36,15 @@ mode = "parallel"
 task = "shell.exec"
 args = "python train_model.py"
 
+[[workflows.workflow]]
+name = "Start PII Detection Server"
+author = 39062319
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python app.py"
+
 [[ports]]
 localPort = 5000
 externalPort = 80

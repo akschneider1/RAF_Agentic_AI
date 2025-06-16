@@ -648,13 +648,26 @@ async def test_competition_examples():
 
     return {"competition_test_results": results}
 
-if __name__ == "__main__":
-    import uvicorn
-    # Assuming ensemble_available and ensemble_detector are defined elsewhere (e.g., in rules.py)
-    ensemble_available = False # Replace with actual check if the ensemble model is loaded
-    class EnsembleDetector:
+# Initialize ensemble components with proper error handling
+ensemble_available = False
+ensemble_detector = None
+
+try:
+    from model_ensemble import AdvancedEnsembleDetector
+    ensemble_detector = AdvancedEnsembleDetector()
+    ensemble_available = True
+    print("✅ Ensemble detection available")
+except ImportError as e:
+    print(f"⚠️ Ensemble detection not available: {e}")
+    class DummyEnsembleDetector:
         def detect_ensemble_pii(self, text, min_confidence):
             return []
-    ensemble_detector = EnsembleDetector()
+    ensemble_detector = DummyEnsembleDetector()
 
+if __name__ == "__main__":
+    import uvicorn
+    print(f"🚀 Starting PII Detection Server")
+    print(f"   Rule-based detection: ✅ Available")
+    print(f"   Ensemble detection: {'✅ Available' if ensemble_available else '❌ Not available'}")
+    print(f"   Server: http://0.0.0.0:5000")
     uvicorn.run(app, host="0.0.0.0", port=5000)
