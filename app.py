@@ -14,6 +14,7 @@ detector = PIIDetector()
 class TextInput(BaseModel):
     text: str
     min_confidence: float = 0.7
+    use_obfuscation: bool = False
 
 class PIIResponse(BaseModel):
     original_text: str
@@ -21,19 +22,52 @@ class PIIResponse(BaseModel):
     detected_pii: List[Dict[str, Any]]
     summary: Dict[str, int]
 
-def mask_pii_in_text(text: str, pii_matches: List[PIIMatch]) -> str:
-    """Replace detected PII with [MASKED] tokens as per competition format"""
+def mask_pii_in_text(text: str, pii_matches: List[PIIMatch], use_consistent_obfuscation: bool = False) -> str:
+    """Replace detected PII with [MASKED] tokens or consistent surrogates"""
     if not pii_matches:
         return text
 
-    # Sort matches by start position in reverse order to avoid index shifting
+    if use_consistent_obfuscation:
+        return _apply_consistent_obfuscation(text, pii_matches)
+
+    # Sort matches by start position in reverse order to avoid position shifts
     sorted_matches = sorted(pii_matches, key=lambda x: x.start_pos, reverse=True)
 
     masked_text = text
     for match in sorted_matches:
-        # Use competition standard [MASKED] format
-        mask = "[MASKED]"
-        masked_text = masked_text[:match.start_pos] + mask + masked_text[match.end_pos:]
+        masked_text = masked_text[:match.start_pos] + "[MASKED]" + masked_text[match.end_pos:]
+
+    return masked_text
+
+def _apply_consistent_obfuscation(text: str, pii_matches: List[PIIMatch]) -> str:
+    """Apply consistent surrogate values for same entities throughout text"""
+    import hashlib
+
+    # Entity mapping for consistency
+    entity_map = {}
+    surrogate_generators = {
+        "PERSON": ["أحمد المجهول", "سارة المجهولة", "محمد المخفي", "فاطمة المخفية"],
+        "LOCATION": ["المدينة الأولى", "المدينة الثانية", "المنطقة الأولى"],
+        "PHONE": ["05XXXXXXXX", "01XXXXXXXX", "02XXXXXXXX"],
+        "EMAIL": ["user@example.com", "contact@domain.com"],
+        "ID_NUMBER": ["1XXXXXXXXX", "2XXXXXXXXX"]
+    }
+
+    # Sort matches by start position in reverse order
+    sorted_matches = sorted(pii_matches, key=lambda x: x.start_pos, reverse=True)
+
+    masked_text = text
+    for match in sorted_matches:
+        entity_key = f"{match.pii_type}:{match.text.lower()}"
+
+        if entity_key not in entity_map:
+            # Generate consistent surrogate based on hash
+            hash_val = int(hashlib.md5(entity_key.encode()).hexdigest()[:8], 16)
+            surrogates = surrogate_generators.get(match.pii_type, ["[MASKED]"])
+            entity_map[entity_key] = surrogates[hash_val % len(surrogates)]
+
+        surrogate = entity_map[entity_key]
+        masked_text = masked_text[:match.start_pos] + surrogate + masked_text[match.end_pos:]
 
     return masked_text
 
@@ -189,6 +223,11 @@ async def get_test_interface():
                 <input type="range" id="confidenceSlider" min="0.1" max="1.0" step="0.1" value="0.7">
                 <div class="confidence-display">0.7</div>
             </div>
+            
+            <div class="form-group">
+                <label for="obfuscateCheck">Use Consistent Obfuscation:</label>
+                <input type="checkbox" id="obfuscateCheck">
+            </div>
 
             <button onclick="testPIIDetection()" id="testButton">🔍 Detect PII</button>
 
@@ -236,6 +275,7 @@ Mixed: call 05 1 234 5678 or email test@domain.com
             async function testPIIDetection() {
                 const textInput = document.getElementById('textInput').value;
                 const confidence = parseFloat(document.getElementById('confidenceSlider').value);
+                const useObfuscation = document.getElementById('obfuscateCheck').checked;
                 const resultsDiv = document.getElementById('results');
                 const testButton = document.getElementById('testButton');
                 const loading = document.getElementById('loading');
@@ -257,7 +297,8 @@ Mixed: call 05 1 234 5678 or email test@domain.com
                         },
                         body: JSON.stringify({
                             text: textInput,
-                            min_confidence: confidence
+                            min_confidence: confidence,
+                            use_obfuscation: useObfuscation
                         })
                     });
 
@@ -345,8 +386,8 @@ async def detect_pii(input_data: TextInput):
         # Detect all PII in the text
         detected_pii = detector.detect_all_pii(input_data.text, input_data.min_confidence)
 
-        # Create masked version
-        masked_text = mask_pii_in_text(input_data.text, detected_pii)
+        # Create masked version (with optional obfuscation)
+        masked_text = mask_pii_in_text(input_data.text, detected_pii, input_data.use_obfuscation)
 
         # Convert PIIMatch objects to dictionaries
         pii_list = []
@@ -445,12 +486,12 @@ async def detect_pii_batch(texts: List[str], min_confidence: float = 0.7):
     try:
         if len(texts) > 100:  # Limit batch size
             raise HTTPException(status_code=400, detail="Batch size too large (max 100)")
-        
+
         results = []
         for text in texts:
             detected_pii = detector.detect_all_pii(text, min_confidence)
             masked_text = mask_pii_in_text(text, detected_pii)
-            
+
             pii_list = []
             for match in detected_pii:
                 pii_list.append({
@@ -462,20 +503,20 @@ async def detect_pii_batch(texts: List[str], min_confidence: float = 0.7):
                     "pattern_name": match.pattern_name,
                     "detection_method": "rules"
                 })
-            
+
             summary = {}
             for match in detected_pii:
                 summary[match.pii_type] = summary.get(match.pii_type, 0) + 1
-            
+
             results.append({
                 "original_text": text,
                 "masked_text": masked_text,
                 "detected_pii": pii_list,
                 "summary": summary
             })
-        
+
         return {"results": results, "processed_count": len(texts)}
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in batch detection: {str(e)}")
 
@@ -588,19 +629,19 @@ async def test_competition_examples():
         "IPv6 edaf:fd8f:e1e8:cfec:8bab:1afd:6aad:550c",
         "رخصتك 78B5R2MVFAHJ48500 لا تزال مسجلة",
     ]
-    
+
     results = []
     for test_text in test_cases:
         detected_pii = detector.detect_all_pii(test_text, min_confidence=0.7)
         masked_text = mask_pii_in_text(test_text, detected_pii)
-        
+
         results.append({
             "source": test_text,
             "target": masked_text,
             "detected_pii_count": len(detected_pii),
             "detected_types": [match.pii_type for match in detected_pii]
         })
-    
+
     return {"competition_test_results": results}
 
 if __name__ == "__main__":

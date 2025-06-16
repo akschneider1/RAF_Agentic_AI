@@ -19,11 +19,20 @@ class PIIDetector:
     """Rule-based PII detection engine with high-precision regex patterns"""
 
     def __init__(self):
-        self.patterns = self._initialize_patterns()
+        # Arabic linguistic patterns for better contextual detection
+        self.arabic_name_indicators = [
+            r'الأستاذ|الدكتور|السيد|السيدة|الأخ|الأخت',  # Title indicators
+            r'ابن|بنت|أبو|أم',  # Family relation indicators
+            r'يدعى|اسمه|اسمها|المسمى|المدعو',  # Name introduction phrases
+        ]
 
-    def _initialize_patterns(self) -> Dict[str, List[Tuple[str, re.Pattern, float]]]:
-        """Initialize all PII detection patterns"""
-        return {
+        self.arabic_location_indicators = [
+            r'مدينة|محافظة|منطقة|حي|شارع|طريق',  # Location type indicators
+            r'يقيم في|يسكن في|عنوانه|موقع',  # Address introduction phrases
+        ]
+
+        # Compile all regex patterns for better performance
+        self.patterns = {
             'PHONE': self._get_phone_patterns(),
             'EMAIL': self._get_email_patterns(),
             'NATIONAL_ID': self._get_national_id_patterns(),
@@ -522,6 +531,44 @@ class PIIDetector:
                             ))
                     except ValueError:
                         continue
+
+        return matches
+    
+    def detect_contextual_arabic_pii(self, text: str, min_confidence: float = 0.7) -> List[PIIMatch]:
+        """Detect PII entities in Arabic context using linguistic indicators."""
+        matches = []
+
+        # Example: Detecting names with context
+        for indicator in self.arabic_name_indicators:
+            pattern = r'(?:' + indicator + r')\s+([\u0600-\u06FF\s]+)'
+            regex = re.compile(pattern, re.IGNORECASE)
+            for match in regex.finditer(text):
+                name = match.group(1).strip()
+                if name:
+                    matches.append(PIIMatch(
+                        text=name,
+                        pii_type="PERSON_NAME",
+                        start_pos=match.start(1),
+                        end_pos=match.end(1),
+                        confidence=0.85,  # Adjust confidence as needed
+                        pattern_name="Arabic Name with Context"
+                    ))
+
+        # Example: Detecting locations with context
+        for indicator in self.arabic_location_indicators:
+            pattern = r'(?:' + indicator + r')\s+([\u0600-\u06FF\s]+)'
+            regex = re.compile(pattern, re.IGNORECASE)
+            for match in regex.finditer(text):
+                location = match.group(1).strip()
+                if location:
+                    matches.append(PIIMatch(
+                        text=location,
+                        pii_type="LOCATION",
+                        start_pos=match.start(1),
+                        end_pos=match.end(1),
+                        confidence=0.80,  # Adjust confidence as needed
+                        pattern_name="Arabic Location with Context"
+                    ))
 
         return matches
 
