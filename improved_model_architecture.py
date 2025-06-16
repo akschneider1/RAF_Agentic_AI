@@ -17,6 +17,19 @@ class PIISpecializedBERT(nn.Module):
         
         self.num_labels = num_labels
         
+    def _create_label_mappings(self) -> Dict[str, int]:
+        """Create label to ID mappings for PII types"""
+        return {
+            'O': 0,
+            'B-PERSON': 1, 'I-PERSON': 2,
+            'B-LOCATION': 3, 'I-LOCATION': 4, 
+            'B-ORGANIZATION': 5, 'I-ORGANIZATION': 6,
+            'B-PHONE': 7, 'I-PHONE': 8,
+            'B-EMAIL': 9, 'I-EMAIL': 10,
+            'B-ID_NUMBER': 11, 'I-ID_NUMBER': 12,
+            'B-ADDRESS': 13, 'I-ADDRESS': 14
+        }
+        
         # Load base BERT model
         self.bert = AutoModel.from_pretrained(model_name)
         config = AutoConfig.from_pretrained(model_name)
@@ -49,11 +62,11 @@ class PIISpecializedBERT(nn.Module):
             nn.LayerNorm(hidden_size // 2)
         ])
         
-        # CRF layer for sequence consistency
+        # Enhanced CRF layer for sequence consistency
         self.use_crf = True
         if self.use_crf:
-            from torchcrf import CRF
-            self.crf = CRF(num_labels, batch_first=True)
+            from crf_enhanced import EnhancedPIICRF
+            self.crf = EnhancedPIICRF(num_labels, self._create_label_mappings())
     
     def forward(self, input_ids, attention_mask=None, labels=None, **kwargs):
         # Get BERT outputs
