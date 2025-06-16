@@ -383,8 +383,12 @@ Mixed: call 05 1 234 5678 or email test@domain.com
 async def detect_pii(input_data: TextInput):
     """Detect PII in the provided text using rule-based approach"""
     try:
-        # Detect all PII in the text
-        detected_pii = detector.detect_all_pii(input_data.text, input_data.min_confidence)
+        # Detect all PII in the text with async optimization
+        detected_pii = await asyncio.to_thread(
+            detector.detect_all_pii, 
+            input_data.text, 
+            input_data.min_confidence
+        )
 
         # Create masked version (with optional obfuscation)
         masked_text = mask_pii_in_text(input_data.text, detected_pii, input_data.use_obfuscation)
