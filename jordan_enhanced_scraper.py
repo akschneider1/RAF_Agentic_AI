@@ -9,7 +9,7 @@ import json
 import re
 import time
 from typing import List, Dict, Optional
-from dataclasses importdataclass
+from dataclasses import dataclass
 from bs4 import BeautifulSoup
 import pandas as pd
 
