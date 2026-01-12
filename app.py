@@ -78,24 +78,45 @@ def init_session_state():
         st.session_state.show_samples = False
 
 
+def get_api_key():
+    """Get API key from secrets (server-side) or environment"""
+    # First, check Streamlit secrets (for deployed apps)
+    try:
+        if "ANTHROPIC_API_KEY" in st.secrets:
+            return st.secrets["ANTHROPIC_API_KEY"]
+    except Exception:
+        pass
+
+    # Then check environment variable
+    return os.getenv("ANTHROPIC_API_KEY", "")
+
+
 def render_sidebar():
     """Render a clean, minimal sidebar"""
     with st.sidebar:
         st.markdown("### ⚙️ Settings")
 
-        # API key with better UX
-        api_key = st.text_input(
-            "Anthropic API Key",
-            type="password",
-            help="Required for AI-powered analysis. Get one at console.anthropic.com",
-            placeholder="sk-ant-..."
-        )
+        # Check if API key is configured server-side
+        server_api_key = get_api_key()
 
-        if api_key:
-            os.environ["ANTHROPIC_API_KEY"] = api_key
-            st.success("✓ API key configured", icon="✅")
+        if server_api_key:
+            # API key is configured server-side - no user input needed
+            os.environ["ANTHROPIC_API_KEY"] = server_api_key
+            st.success("✓ AI analysis enabled", icon="✅")
         else:
-            st.info("Pattern-based analysis available without API key", icon="ℹ️")
+            # No server-side key - allow user to enter their own
+            api_key = st.text_input(
+                "Anthropic API Key",
+                type="password",
+                help="Required for AI-powered analysis. Get one at console.anthropic.com",
+                placeholder="sk-ant-..."
+            )
+
+            if api_key:
+                os.environ["ANTHROPIC_API_KEY"] = api_key
+                st.success("✓ API key configured", icon="✅")
+            else:
+                st.info("Pattern-based analysis available without API key", icon="ℹ️")
 
         st.divider()
 
