@@ -45,11 +45,12 @@ Transform government reform from a manual, fragmented process into an **AI-assis
 
 ---
 
-### Phase 2: Data Integration (Next)
+### Phase 2: Data Integration (Current)
 
 #### 2.1 Document Upload
-- [ ] PDF upload and text extraction
-- [ ] DOCX/RTF support
+- [x] PDF upload and text extraction
+- [x] DOCX/DOC support
+- [x] TXT file support
 - [ ] URL scraping for online legal codes
 - [ ] Batch processing multiple documents
 

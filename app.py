@@ -316,13 +316,58 @@ def burden_scanner_ui():
         with col3:
             st.markdown("**Compliance**\n- 📑 Reporting rules\n- 🔄 Renewal requirements\n- 📋 Documentation")
 
-    # Main input area
-    sample_text = st.text_area(
-        "**Paste your statutory or regulatory text:**",
-        height=250,
-        placeholder="Paste legal text here to scan for procedural burdens...",
-        value=SAMPLE_STATUTE if st.session_state.show_samples else "",
+    # Input method selection
+    input_method = st.radio(
+        "Input Method:",
+        ["✏️ Paste Text", "📄 Upload Document"],
+        horizontal=True,
+        key="scanner_input_method"
     )
+
+    sample_text = ""
+
+    if input_method == "📄 Upload Document":
+        uploaded_file = st.file_uploader(
+            "Upload a document (PDF, DOCX, or TXT)",
+            type=["pdf", "docx", "doc", "txt"],
+            key="scanner_file_upload"
+        )
+
+        if uploaded_file:
+            with st.spinner("Extracting text from document..."):
+                try:
+                    from src.document_upload import extract_document, clean_legal_text
+
+                    file_bytes = uploaded_file.read()
+                    result = extract_document(file_bytes, uploaded_file.name)
+
+                    if result.extraction_notes:
+                        st.warning(f"⚠️ {result.extraction_notes}")
+                    elif result.text:
+                        sample_text = clean_legal_text(result.text)
+                        st.success(f"✅ Extracted {result.word_count:,} words from {result.page_count or 1} page(s)")
+
+                        with st.expander("📄 Preview extracted text", expanded=False):
+                            st.text_area(
+                                "Extracted content:",
+                                value=sample_text[:5000] + ("..." if len(sample_text) > 5000 else ""),
+                                height=200,
+                                disabled=True,
+                                key="extracted_preview"
+                            )
+                    else:
+                        st.error("❌ Could not extract text from document")
+                except Exception as e:
+                    st.error(f"❌ Error processing document: {str(e)}")
+    else:
+        # Text input area
+        sample_text = st.text_area(
+            "**Paste your statutory or regulatory text:**",
+            height=250,
+            placeholder="Paste legal text here to scan for procedural burdens...",
+            value=SAMPLE_STATUTE if st.session_state.show_samples else "",
+            key="scanner_text_input"
+        )
 
     # Options in a cleaner layout
     with st.expander("⚙️ Scan Options", expanded=False):
@@ -568,27 +613,75 @@ def gap_analyzer_ui():
         - **Missing provisions**: Required elements not implemented
         """)
 
+    # Input method selection
+    input_method = st.radio(
+        "Input Method:",
+        ["✏️ Paste Text", "📄 Upload Documents"],
+        horizontal=True,
+        key="gap_input_method"
+    )
+
+    statute_text = ""
+    regulation_text = ""
+
     col1, col2 = st.columns(2)
 
-    with col1:
-        st.markdown("### 📜 Authorizing Statute")
-        statute_text = st.text_area(
-            "The law that authorizes the regulation:",
-            height=250,
-            placeholder="Paste the statutory text here...",
-            value=SAMPLE_STATUTE if st.session_state.show_samples else "",
-            label_visibility="collapsed",
-        )
+    if input_method == "📄 Upload Documents":
+        with col1:
+            st.markdown("### 📜 Authorizing Statute")
+            statute_file = st.file_uploader(
+                "Upload statute document",
+                type=["pdf", "docx", "doc", "txt"],
+                key="gap_statute_upload"
+            )
+            if statute_file:
+                try:
+                    from src.document_upload import extract_document, clean_legal_text
+                    result = extract_document(statute_file.read(), statute_file.name)
+                    if result.text:
+                        statute_text = clean_legal_text(result.text)
+                        st.success(f"✅ {result.word_count:,} words extracted")
+                except Exception as e:
+                    st.error(f"❌ {str(e)}")
 
-    with col2:
-        st.markdown("### 📋 Implementing Regulation")
-        regulation_text = st.text_area(
-            "The agency's implementing regulation:",
-            height=250,
-            placeholder="Paste the regulatory text here...",
-            value=SAMPLE_REGULATION if st.session_state.show_samples else "",
-            label_visibility="collapsed",
-        )
+        with col2:
+            st.markdown("### 📋 Implementing Regulation")
+            regulation_file = st.file_uploader(
+                "Upload regulation document",
+                type=["pdf", "docx", "doc", "txt"],
+                key="gap_regulation_upload"
+            )
+            if regulation_file:
+                try:
+                    from src.document_upload import extract_document, clean_legal_text
+                    result = extract_document(regulation_file.read(), regulation_file.name)
+                    if result.text:
+                        regulation_text = clean_legal_text(result.text)
+                        st.success(f"✅ {result.word_count:,} words extracted")
+                except Exception as e:
+                    st.error(f"❌ {str(e)}")
+    else:
+        with col1:
+            st.markdown("### 📜 Authorizing Statute")
+            statute_text = st.text_area(
+                "The law that authorizes the regulation:",
+                height=250,
+                placeholder="Paste the statutory text here...",
+                value=SAMPLE_STATUTE if st.session_state.show_samples else "",
+                label_visibility="collapsed",
+                key="gap_statute_text"
+            )
+
+        with col2:
+            st.markdown("### 📋 Implementing Regulation")
+            regulation_text = st.text_area(
+                "The agency's implementing regulation:",
+                height=250,
+                placeholder="Paste the regulatory text here...",
+                value=SAMPLE_REGULATION if st.session_state.show_samples else "",
+                label_visibility="collapsed",
+                key="gap_regulation_text"
+            )
 
     if st.button("🔍 Analyze Gaps", type="primary", use_container_width=True):
         if not statute_text.strip() or not regulation_text.strip():
