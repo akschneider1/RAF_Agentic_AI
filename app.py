@@ -6,7 +6,30 @@ Recoding America Fund's state reform initiatives.
 """
 
 import os
+import json
+from datetime import datetime
 import streamlit as st
+
+# Import project management
+from src.project_manager import (
+    ProjectManager,
+    ReformProject,
+    WorkflowStage,
+    render_workflow_progress,
+    render_project_selector,
+    render_project_card,
+)
+
+# Import state comparison data
+from data.state_licensing_data import (
+    COSMETOLOGY_DATA,
+    CONTRACTOR_DATA,
+    REAL_ESTATE_DATA,
+    SAMPLE_STATUTES,
+    compare_states,
+    get_best_practice_state,
+    get_model_provisions,
+)
 
 # Page configuration
 st.set_page_config(
@@ -94,17 +117,48 @@ def get_api_key():
 def render_sidebar():
     """Render a clean, minimal sidebar"""
     with st.sidebar:
+        # Project Management Section
+        st.markdown("### 📁 Projects")
+
+        current_project = render_project_selector()
+
+        if current_project:
+            st.caption(f"Stage: {current_project.get_stage().icon} {current_project.get_stage().display_name}")
+            render_workflow_progress(current_project)
+
+        # New project button
+        with st.expander("➕ New Project", expanded=not bool(ProjectManager.list_projects())):
+            new_name = st.text_input("Project Name", key="new_proj_name", placeholder="e.g., Cosmetology Reform")
+            new_state = st.selectbox("State", ["California", "Texas", "Florida", "New York", "Colorado", "Arizona", "Other"], key="new_proj_state")
+            new_topic = st.selectbox("Topic", ["Cosmetology Licensing", "Contractor Licensing", "Real Estate Licensing", "Business Permits", "Other"], key="new_proj_topic")
+            new_desc = st.text_area("Description (optional)", key="new_proj_desc", placeholder="Brief description of reform goals...")
+
+            if st.button("Create Project", use_container_width=True, type="primary", key="create_proj_btn"):
+                if new_name:
+                    project = ProjectManager.create_project(
+                        name=new_name,
+                        state=new_state,
+                        topic=new_topic,
+                        description=new_desc,
+                    )
+                    ProjectManager.set_current_project(project.id)
+                    st.success(f"Created: {new_name}")
+                    st.rerun()
+                else:
+                    st.warning("Please enter a project name")
+
+        st.divider()
+
+        # Settings Section
         st.markdown("### ⚙️ Settings")
 
         # Check if API key is configured server-side
         server_api_key = get_api_key()
 
         if server_api_key:
-            # API key is configured server-side - no user input needed
             os.environ["ANTHROPIC_API_KEY"] = server_api_key
             st.success("✓ AI analysis enabled", icon="✅")
         else:
-            # No server-side key - allow user to enter their own
             api_key = st.text_input(
                 "Anthropic API Key",
                 type="password",
@@ -117,18 +171,6 @@ def render_sidebar():
                 st.success("✓ API key configured", icon="✅")
             else:
                 st.info("Pattern-based analysis available without API key", icon="ℹ️")
-
-        st.divider()
-
-        # Quick links
-        st.markdown("### 🔗 Resources")
-        st.markdown("""
-        - [Recoding America Fund](https://www.recodingamerica.fund/)
-        - [The Agentic State](https://agenticstate.org/)
-        - [GitHub Repo](https://github.com/akschneider1/RAF_Agentic_AI)
-        """)
-
-        st.divider()
 
         # Sample text toggle
         st.session_state.show_samples = st.toggle(
@@ -150,10 +192,47 @@ def render_home():
     Developed for the [Recoding America Fund](https://www.recodingamerica.fund/)'s mission to modernize state government.
     """)
 
+    # Show current project status if one is selected
+    current_project = ProjectManager.get_current_project()
+    if current_project:
+        st.divider()
+        with st.container(border=True):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"### 📁 Active Project: {current_project.name}")
+                st.caption(f"📍 {current_project.state} • 📋 {current_project.topic}")
+            with col2:
+                stage = current_project.get_stage()
+                st.markdown(f"### {stage.icon} {stage.display_name}")
+
+            render_workflow_progress(current_project)
+
+            # Suggest next action based on stage
+            if current_project.stage == "created":
+                st.info("👉 **Next step:** Use the **Burden Scanner** to analyze your target statute.")
+            elif current_project.stage == "scanned":
+                st.info("👉 **Next step:** Use the **Gap Analyzer** to compare against regulations.")
+            elif current_project.stage == "analyzed":
+                st.info("👉 **Next step:** Use the **Cross-State Comparator** to find best practices.")
+            elif current_project.stage == "drafted":
+                st.info("👉 **Next step:** Review and refine your draft legislation.")
+
     st.divider()
 
+    # Show existing projects
+    projects = ProjectManager.list_projects()
+    if projects and not current_project:
+        st.markdown("## 📁 Your Projects")
+        cols = st.columns(min(len(projects), 3))
+        for i, project in enumerate(projects[:3]):
+            with cols[i % 3]:
+                render_project_card(project)
+        if len(projects) > 3:
+            st.caption(f"+ {len(projects) - 3} more projects in sidebar")
+        st.divider()
+
     # Tool cards in a grid
-    st.markdown("## Choose a Tool")
+    st.markdown("## 🛠️ Tools")
     st.caption("Select a tool below to get started, or use the tabs above to navigate.")
 
     col1, col2 = st.columns(2)
@@ -330,15 +409,35 @@ def burden_scanner_ui():
                     for rec in result.recommendations:
                         st.markdown(f"- {rec}")
 
-                # Download
+                # Download and Save
                 st.divider()
-                st.download_button(
-                    label="📥 Download Full Report",
-                    data=result.to_markdown(),
-                    file_name="burden_scan_report.md",
-                    mime="text/markdown",
-                    use_container_width=True,
-                )
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.download_button(
+                        label="📥 Download Full Report",
+                        data=result.to_markdown(),
+                        file_name="burden_scan_report.md",
+                        mime="text/markdown",
+                        use_container_width=True,
+                    )
+
+                # Save to project if one is active
+                current_project = ProjectManager.get_current_project()
+                if current_project:
+                    with col2:
+                        if st.button("💾 Save to Project", use_container_width=True, key="save_scan"):
+                            current_project.scan_results = {
+                                "burdens_found": len(result.burdens_found),
+                                "high_priority": len(result.high_priority_findings),
+                                "timestamp": datetime.now().isoformat(),
+                                "summary": f"Found {len(result.burdens_found)} burdens",
+                            }
+                            current_project.target_statute = sample_text[:500]
+                            if current_project.stage == "created":
+                                current_project.advance_stage(WorkflowStage.SCANNED)
+                            ProjectManager.save_project(current_project)
+                            st.success("✅ Scan saved to project!")
+                            st.rerun()
 
             except Exception as e:
                 st.error(f"❌ Scan failed: {str(e)}")
@@ -556,6 +655,132 @@ def gap_analyzer_ui():
                     st.exception(e)
 
 
+def render_preloaded_comparison():
+    """Render comparison using pre-loaded state data"""
+    import pandas as pd
+
+    license_type = st.selectbox(
+        "**License Type:**",
+        ["Cosmetology", "Contractor", "Real Estate"],
+        key="preloaded_license_type"
+    )
+
+    # Get data based on selection
+    data_map = {
+        "Cosmetology": COSMETOLOGY_DATA,
+        "Contractor": CONTRACTOR_DATA,
+        "Real Estate": REAL_ESTATE_DATA,
+    }
+    data = data_map.get(license_type, {})
+
+    if not data:
+        st.warning("No data available for this license type.")
+        return
+
+    # State selection
+    available_states = list(data.keys())
+    selected_states = st.multiselect(
+        "Select states to compare:",
+        available_states,
+        default=available_states[:3],
+        key="preloaded_states"
+    )
+
+    if len(selected_states) < 2:
+        st.info("Select at least 2 states to compare.")
+        return
+
+    # Build comparison dataframe
+    comparison_data = []
+    for state in selected_states:
+        req = data[state]
+        comparison_data.append({
+            "State": state,
+            "Training Hours": req.training_hours,
+            "Processing Days": req.processing_days,
+            "Total Initial Cost": f"${req.total_initial_cost:,.0f}",
+            "Exam Required": "✅" if req.exam_required else "❌",
+            "In-Person Required": "✅" if req.in_person_required else "❌",
+            "Notarization": "✅" if req.notarization_required else "❌",
+            "Burden Score": req.burden_score,
+        })
+
+    df = pd.DataFrame(comparison_data)
+
+    # Display comparison table
+    st.markdown("### 📊 Side-by-Side Comparison")
+    st.dataframe(df.set_index("State").T, use_container_width=True)
+
+    # Visual charts
+    st.markdown("### 📈 Key Metrics")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        chart_data = pd.DataFrame({
+            "State": selected_states,
+            "Training Hours": [data[s].training_hours for s in selected_states],
+        }).set_index("State")
+        st.bar_chart(chart_data, y="Training Hours")
+        st.caption("Training Hours Required")
+
+    with col2:
+        chart_data = pd.DataFrame({
+            "State": selected_states,
+            "Burden Score": [data[s].burden_score for s in selected_states],
+        }).set_index("State")
+        st.bar_chart(chart_data, y="Burden Score")
+        st.caption("Overall Burden Score (lower is better)")
+
+    # Rankings
+    st.markdown("### 🏆 Rankings (Least Burdensome First)")
+    sorted_states = sorted(selected_states, key=lambda s: data[s].burden_score)
+    for i, state in enumerate(sorted_states, 1):
+        req = data[state]
+        score = req.burden_score
+        icon = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else "🔹"
+
+        with st.expander(f"{icon} #{i}: {state} — Burden Score: {score}/10"):
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Training Hours", f"{req.training_hours:,}")
+            col2.metric("Total Cost", f"${req.total_initial_cost:,.0f}")
+            col3.metric("Processing Days", req.processing_days)
+
+            if req.recent_reforms:
+                st.success(f"🌟 **Recent Reform:** {req.recent_reforms}")
+
+    # Model provisions
+    st.markdown("### ⭐ Best Practice Examples")
+    provisions = get_model_provisions(license_type.lower())
+    if provisions:
+        for prov in provisions[:3]:
+            st.info(f"**{prov['state']}:** {prov['reform']}")
+    else:
+        st.caption("No recent reforms documented for this license type.")
+
+    # Sample statutes
+    with st.expander("📜 View Sample Statutes"):
+        for state in selected_states:
+            key = f"{state} {license_type}"
+            if key in SAMPLE_STATUTES:
+                st.markdown(f"**{state}:**")
+                st.code(SAMPLE_STATUTES[key], language="text")
+
+    # Update project if one is active
+    current_project = ProjectManager.get_current_project()
+    if current_project:
+        if st.button("💾 Save Comparison to Project", use_container_width=True, key="save_comparison"):
+            current_project.comparison_results = {
+                "license_type": license_type,
+                "states_compared": selected_states,
+                "timestamp": datetime.now().isoformat(),
+            }
+            if current_project.stage in ["created", "scanned"]:
+                current_project.advance_stage(WorkflowStage.ANALYZED)
+            ProjectManager.save_project(current_project)
+            st.success("✅ Comparison saved to project!")
+            st.rerun()
+
+
 def cross_state_ui():
     """Cross-State Comparator interface"""
     render_tool_header(
@@ -565,17 +790,29 @@ def cross_state_ui():
         key="compare"
     )
 
+    # Data source selection
+    data_source = st.radio(
+        "Data Source:",
+        ["📊 Pre-loaded State Data", "✏️ Enter Custom Text"],
+        horizontal=True,
+        key="compare_data_source"
+    )
+
+    if data_source == "📊 Pre-loaded State Data":
+        render_preloaded_comparison()
+        return
+
+    # Custom text comparison (original functionality)
     topic = st.selectbox(
         "**Regulatory Topic:**",
         [
-            "Business Licensing",
-            "Professional Licensing",
-            "Building Permits",
-            "Environmental Permits",
-            "Food Service Permits",
+            "Cosmetology Licensing",
             "Contractor Licensing",
+            "Real Estate Licensing",
+            "Business Licensing",
             "Custom Topic..."
-        ]
+        ],
+        key="custom_topic"
     )
 
     if topic == "Custom Topic...":
@@ -604,7 +841,7 @@ def cross_state_ui():
             if name and text:
                 provisions[name] = text
 
-    if st.button("📊 Compare Jurisdictions", type="primary", use_container_width=True):
+    if st.button("📊 Compare Jurisdictions", type="primary", use_container_width=True, key="compare_custom_btn"):
         if len(provisions) < 2:
             st.warning("⚠️ Please enter provisions for at least 2 jurisdictions.")
             return
