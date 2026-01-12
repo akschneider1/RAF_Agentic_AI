@@ -184,14 +184,14 @@ def render_home():
             """)
 
 
-def render_tool_header(icon: str, title: str, description: str):
+def render_tool_header(icon: str, title: str, description: str, key: str):
     """Render a consistent tool header"""
     col1, col2 = st.columns([3, 1])
     with col1:
         st.markdown(f"# {icon} {title}")
         st.caption(description)
     with col2:
-        if st.button("← Back to Home", use_container_width=True):
+        if st.button("← Back to Home", use_container_width=True, key=f"back_home_{key}"):
             st.session_state.current_tool = "home"
             st.rerun()
     st.divider()
@@ -202,7 +202,8 @@ def burden_scanner_ui():
     render_tool_header(
         "📋",
         "Burden Scanner",
-        "Identify procedural burdens in statutory and regulatory text"
+        "Identify procedural burdens in statutory and regulatory text",
+        key="scanner"
     )
 
     # Quick guide
@@ -329,7 +330,8 @@ def plain_language_ui():
     render_tool_header(
         "✍️",
         "Plain Language Rewriter",
-        "Transform complex legal text into clear, accessible language"
+        "Transform complex legal text into clear, accessible language",
+        key="rewriter"
     )
 
     # Side-by-side layout
@@ -435,7 +437,8 @@ def gap_analyzer_ui():
     render_tool_header(
         "🔍",
         "Gap Analyzer",
-        "Compare regulations against authorizing statutes to identify overreach"
+        "Compare regulations against authorizing statutes to identify overreach",
+        key="gap"
     )
 
     with st.expander("ℹ️ What does this tool find?", expanded=False):
@@ -537,7 +540,8 @@ def cross_state_ui():
     render_tool_header(
         "📊",
         "Cross-State Comparator",
-        "Compare regulatory approaches across jurisdictions"
+        "Compare regulatory approaches across jurisdictions",
+        key="compare"
     )
 
     topic = st.selectbox(
@@ -654,7 +658,8 @@ def model_bill_ui():
     render_tool_header(
         "📝",
         "Model Bill Drafter",
-        "Generate reform legislation from best practice examples"
+        "Generate reform legislation from best practice examples",
+        key="bill"
     )
 
     col1, col2 = st.columns(2)
